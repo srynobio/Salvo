@@ -1,5 +1,5 @@
 # Salvo - Slurm command and job launcher
-![alt text](https://github.com/srynobio/Salvo/blob/master/img/salvo-fire.jpg)
+![alt text](https://github.com/srynobio/Salvo/blob/master/img/salvo3.jpg)
 
 ```
 Synopsis:
