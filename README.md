@@ -1,4 +1,4 @@
-![alt text](https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png "Salvo -Slurm command and job launcher")
+![alt text](https://github.com/srynobio/Salvo/blob/master/img/salvo.jpg "Salvo -Slurm command and job launcher")
 
 ```
 Synopsis:
