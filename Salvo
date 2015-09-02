@@ -1,0 +1,207 @@
+#!/usr/bin/env perl
+# Salvo
+use strict;
+use warnings;
+use feature 'say';
+use autodie;
+use Getopt::Long;
+use IO::Dir;
+use File::Find;
+use Cwd;
+
+my $usage = <<"EOU";
+
+Synopsis:
+
+    Salvo - Slurm command and job launcher
+
+    ./Salvo -command_file <FILE> -account <STRING> -partition <STRING> -UID <STRING>
+    ./Salvo -command_file <FILE> -account <STRING> -partition <STRING> -UID <STRING> -just_batch 
+
+Description:
+
+    Designed to aid launching of jobs on CHPC cluster from a command list file.
+    View github page <> for more detailed description.
+
+Required options:
+
+    -command_file, -cf      :   File containing list of commands to run. <FILE>
+    -account, -a            :   CHPC account name. e.g. yandell-em. <STRING> 
+    -partition, -p          :   CHPC partition to run jobs on. e.g. ember-freecycle <STRING>
+    -UID                    :   Your University or employee id. <STRING> 
+
+Additional options:
+
+    -time, -t               :   Time to allow each job to run on node <STRING> (default 1:00:00).
+    -node, -n               :   Number of nodes to run across per sbatch job submitted. <INT> default 1).
+    -available_nodes, -an   :   Number of jobs to launch and run at any one time. <INT> (default 1).
+    -clean_up, -cu          :   Option will remove launch.index, *sbatch and *out jobs.
+    -jobs_per_sbatch, -jps  :   Number of jobs to add to each sbatch script. <INT> (default 1);
+    -just_sbatch            :   This option will create all sbatch jobs die, but not submit them (default FALSE).
+    -chdir                  :   This option will tell each sbatch job to cd into this directory before running command. <STRING> (default current).
+    -help                   :   Prints this battleworn help message.
+
+EOU
+
+my %salvo_opts;
+GetOptions(
+    \%salvo_opts,
+    "commands_file|cf=s",
+    "jobs_per_sbatch|jps=i",
+    "time|t=s",
+    "nodes|n=i",
+    "account|a=s",
+    "partition|p=s",
+    "available_nodes|an=i",
+    "clean_up|cu",
+    "just_sbatch",
+    "chdir=s",
+    "UID=s",
+    "help|h",
+);
+
+## Just run clean up.
+if ( $salvo_opts{clean_up} ) { 
+    `rm *out *sbatch launch.index`;
+    say "Cleaned up!";
+    exit(0);
+}
+
+# Require check
+unless ( 
+    $salvo_opts{commands_file} and $salvo_opts{account} and $salvo_opts{partition} and $salvo_opts{UID} ) {
+    die "$usage\n[ERROR] - Options command_file, account, UID and partition required.";
+}
+
+## set up some defaults.
+$salvo_opts{jobs_per_sbatch} //= 1;
+$salvo_opts{time} //= '1:00:00';
+$salvo_opts{nodes} //= 1;
+$salvo_opts{available_nodes} //= 1;
+
+## Get the supplied dir or the current working.
+my $dir = (($salvo_opts{chdir}) ? $salvo_opts{chdir} : getcwd);
+
+## open command file
+my $CMDS = IO::File->new($salvo_opts{commands_file});
+
+my @cmds;
+foreach my $cmd (<$CMDS>) {
+    chomp $cmd;
+    push @cmds, $cmd;
+}
+$CMDS->close;
+
+## split base on jps, then create sbatch scripts.
+my @var;
+push @var, [ splice @cmds, 0, $salvo_opts{jobs_per_sbatch} ] while @cmds;
+
+foreach my $group (@var) {
+    chomp $group;
+    writer($group);
+}
+
+## just create sbatch jobs dont submit.
+die "[WARN] - sbatch scripts written not submitted\n" 
+if ($salvo_opts{just_sbatch});
+
+## submit sbatch jobs.
+my $DIR = IO::Dir->new('.');
+my $running = 0;
+foreach my $launch ($DIR->read) {
+    chomp $launch;
+    next unless ( $launch =~ /sbatch$/);
+
+    if ( $running >= $salvo_opts{available_nodes} ) {
+        my $status = _jobs_status();
+        if ( $status eq 'add' ) {
+            $running--;
+            redo;
+        }
+        elsif ( $status eq 'wait' ) {
+            sleep(10);
+            redo;
+        }
+    }
+    else {
+        system "sbatch $launch &>> launch.index";
+        $running++;
+        next;
+    }
+}
+
+# give sbatch system time to start
+sleep(60);
+
+# check the status of current sbatch jobs
+# before moving on.
+_wait_all_jobs();
+
+## --------------------------------------------------- ##
+
+sub _jobs_status {
+    my $state = `squeue -u $salvo_opts{UID} |wc -l`;
+
+    if ( $state >= $salvo_opts{available_nodes} ) {
+        return 'wait';
+    }
+    else {
+        return 'add';
+    }
+}
+
+## --------------------------------------------------- ##
+
+sub _wait_all_jobs {
+    my @indexs = `cat launch.index`;
+    chomp @indexs;
+
+    foreach my $job (@indexs) {
+        my @parts = split /\s/, $job;
+
+        LINE:
+        my $state = `scontrol show job $parts[-1] |grep 'JobState'`;
+        if ( $state =~ /(RUNNING|PENDING)/ ) {
+            sleep(60);
+            goto LINE;
+        }
+        else { next }
+    }
+    return;
+}
+
+## --------------------------------------------------- ##
+
+sub writer {
+    my $stack = shift;
+
+    my $jobname = 'salvo-' . int(rand(10000));
+    my $slurm_out = $jobname . '.out';
+    my $outfile = $jobname . '.sbatch';
+
+    my $cmds = join("\n", @{$stack} );
+
+    my $sbatch = <<"EOM";
+#!/bin/bash
+#SBATCH -t $salvo_opts{time}
+#SBATCH -N $salvo_opts{nodes}
+#SBATCH -A $salvo_opts{account}
+#SBATCH -p $salvo_opts{partition}
+#SBATCH -J $jobname
+#SBATCH -o $slurm_out
+
+cd $dir
+
+$cmds
+
+EOM
+
+open(my $OUT, '>', $outfile);
+say $OUT $sbatch;
+
+close $OUT;
+}
+
+## --------------------------------------------------- ##
+
+
