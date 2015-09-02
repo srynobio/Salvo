@@ -1,4 +1,5 @@
-![alt text](https://github.com/srynobio/Salvo/blob/master/img/salvo.jpg "Salvo -Slurm command and job launcher")
+# Salvo - Slurm command and job launcher
+![alt text](https://github.com/srynobio/Salvo/blob/master/img/salvo-fire.jpg)
 
 ```
 Synopsis:
