@@ -12,7 +12,7 @@ Synopsis:
 Description:
 
     Designed to aid launching of jobs on CHPC cluster from a command list file.
-    View github page <> for more detailed description.
+    View github page <https://github.com/srynobio/Salvo> for more detailed description.
 
 Required options:
 
