@@ -33,5 +33,23 @@ Additional options:
     -help                   :   Prints this battleworn help message.
 ```
 
+## Detailed description
+Often it gets tedious creating sbatch scripts every time you want to launch n number of jobs on a cluster.  Salvo is designed to give you a couple of options when launching jobs in a slurm based environment:
+
+1.	Creation of sbatch scripts, for user submission.
+2.	Creation of sbatch scripts, and submission of sbatch jobs in a controlled manner.
+ 
+
+
+
+
+
+ 
+
+
+
+
+
+ 
 
 
