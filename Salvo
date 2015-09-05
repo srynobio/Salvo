@@ -20,7 +20,7 @@ Synopsis:
 
 Description:
 
-    Designed to aid launching of jobs on CHPC cluster from a command list file.
+    Designed to aid launching of jobs on Slurm cluster from a command list file.
     View github page <https://github.com/srynobio/Salvo> for more detailed description.
 
 Required options:
