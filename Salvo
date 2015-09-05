@@ -1,7 +1,8 @@
 #!/usr/bin/env perl
 # Salvo
 use strict;
-use warnings;
+#use warnings;
+use warnings qw(io);
 use feature 'say';
 use autodie;
 use Getopt::Long;
@@ -37,6 +38,7 @@ Additional options:
     -available_nodes, -an   :   Number of jobs to launch and run at any one time. <INT> (default 1).
     -clean_up, -cu          :   Option will remove launch.index, *sbatch and *out jobs.
     -jobs_per_sbatch, -jps  :   Number of jobs to add to each sbatch script. <INT> (default 1);
+    -added_steps, -as       :   Additional step to add to each sbatch job <STRING> (comma separated).
     -just_sbatch            :   This option will create all sbatch jobs die, but not submit them (default FALSE).
     -chdir                  :   This option will tell each sbatch job to cd into this directory before running command. <STRING> (default current).
     -help                   :   Prints this battleworn help message.
@@ -55,6 +57,7 @@ GetOptions(
     "available_nodes|an=i",
     "clean_up|cu",
     "just_sbatch",
+    "added_steps|as=s",
     "chdir=s",
     "UID=s",
     "help|h",
@@ -67,7 +70,7 @@ if ( $salvo_opts{clean_up} ) {
     exit(0);
 }
 
-# Require check
+## Require check
 unless ( 
     $salvo_opts{commands_file} and $salvo_opts{account} and $salvo_opts{partition} and $salvo_opts{UID} ) {
     die "$usage\n[ERROR] - Options command_file, account, UID and partition required.";
@@ -78,6 +81,17 @@ $salvo_opts{jobs_per_sbatch} //= 1;
 $salvo_opts{time} //= '1:00:00';
 $salvo_opts{nodes} //= 1;
 $salvo_opts{available_nodes} //= 1;
+
+## if step were added get them ready.
+my @steps;
+if ($salvo_opts{added_steps}) {
+    if ($salvo_opts{added_steps} =~ /\,/) {
+        @steps = split /\,/, $salvo_opts{added_steps};
+    }
+    else {
+        push @steps, $salvo_opts{added_steps};
+    }
+}
 
 ## Get the supplied dir or the current working.
 my $dir = (($salvo_opts{chdir}) ? $salvo_opts{chdir} : getcwd);
@@ -105,8 +119,20 @@ foreach my $group (@var) {
 die "[WARN] - sbatch scripts written not submitted\n" 
 if ($salvo_opts{just_sbatch});
 
+## Check if sbatch job exist already
+## to warn poss double submission.
+my $look = `find . -maxdepth 1 -name "*sbatch"|wc -l`;
+chomp $look;
+if ( $look => 1 ) {
+    say "[WARN]  - sbatch submission total: $look";
+    say "[INPUT] - continue? [y/n]";
+    my $continue = <STDIN>;
+    chomp $continue;
+    ($continue eq 'y') ? say "Salvo running..." : exit(0);
+}
+
 ## submit sbatch jobs.
-my $DIR = IO::Dir->new('.');
+my $DIR = IO::Dir->new(".");
 my $running = 0;
 foreach my $launch ($DIR->read) {
     chomp $launch;
@@ -130,8 +156,8 @@ foreach my $launch ($DIR->read) {
     }
 }
 
-# give sbatch system time to start
-sleep(60);
+# give sbatch system time to work
+sleep(30);
 
 # check the status of current sbatch jobs
 # before moving on.
@@ -140,7 +166,7 @@ _wait_all_jobs();
 ## --------------------------------------------------- ##
 
 sub _jobs_status {
-    my $state = `squeue -u $salvo_opts{UID} |wc -l`;
+    my $state = `squeue -u $salvo_opts{UID} |grep -v 'JOBID'|wc -l`;
 
     if ( $state >= $salvo_opts{available_nodes} ) {
         return 'wait';
@@ -162,7 +188,7 @@ sub _wait_all_jobs {
         LINE:
         my $state = `scontrol show job $parts[-1] |grep 'JobState'`;
         if ( $state =~ /(RUNNING|PENDING)/ ) {
-            sleep(60);
+            sleep(10);
             goto LINE;
         }
         else { next }
@@ -180,6 +206,7 @@ sub writer {
     my $outfile = $jobname . '.sbatch';
 
     my $cmds = join("\n", @{$stack} );
+    my $extra_steps = join("\n", @steps) if @steps;
 
     my $sbatch = <<"EOM";
 #!/bin/bash
@@ -191,6 +218,8 @@ sub writer {
 #SBATCH -o $slurm_out
 
 cd $dir
+
+$extra_steps
 
 $cmds
 
