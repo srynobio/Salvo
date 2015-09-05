@@ -44,10 +44,10 @@ Differences between these step given below.
 
 ### Required options:
 
+* A text file containg each of the commands to run.
 ```
  -command_file, -cf      :   File containing list of commands to run. <FILE>
 ```
-* A text file containg each of the commands to run.
 ```
 Example:
 sambamba merge -t 40 /path/to/my/merged1.bam /path/to/my/file1.bam /path/to/my/file2.bam 
@@ -57,26 +57,28 @@ sambamba merge -t 40 /path/to/my/merged4.bam /path/to/my/file7.bam /path/to/my/f
 ...
 ```
 
+* The account to submit the sbatch job to.
 ```
  -account, -a            :   CHPC account name. e.g. our-nodes. <STRING>
 ```
-* The account to submit the sbatch job to.
 ```
+Example:(result).
 #SBATCH -A our-nodes
 ```
 
+* The specific parition to submit the sbatch job to.
 ```
 -partition, -p          :   CHPC partition to run jobs on. e.g. our-partition <STRING>
 ```
-* The specific parition to submit the sbatch job to.
 ```
+Example:(result).
 #SBATCH -p our-partition
 ```
 
+* Your identification known to the system.
 ```
 -UID                    :   Your University or employee id. <STRING>
 ```
-* Your identification known to the system.
 
 
 
