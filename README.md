@@ -11,8 +11,7 @@ Synopsis:
 
 Description:
 
-    Designed to aid launching of jobs on CHPC cluster from a command list file.
-    View github page <https://github.com/srynobio/Salvo> for more detailed description.
+    Designed to aid launching of jobs on Slurm cluster from a command list file.
 
 Required options:
 
@@ -33,12 +32,51 @@ Additional options:
     -help                   :   Prints this battleworn help message.
 ```
 
-## Detailed description
+# Overview:
 Often it gets tedious creating sbatch scripts every time you want to launch n number of jobs on a cluster.  Salvo is designed to give you a couple of options when launching jobs in a [slurm](http://slurm.schedmd.com/) based environment:
 
 1.	Creation of sbatch scripts, for user submission.
 2.	Creation of sbatch scripts, and submission of sbatch jobs in a controlled manner.
- 
+
+Differences between these step given below.
+
+# Description of the options:
+
+### Required options:
+
+```
+ -command_file, -cf      :   File containing list of commands to run. <FILE>
+```
+* A text file containg each of the commands to run.
+```
+Example:
+sambamba merge -t 40 /path/to/my/merged1.bam /path/to/my/file1.bam /path/to/my/file2.bam 
+sambamba merge -t 40 /path/to/my/merged2.bam /path/to/my/file3.bam /path/to/my/file4.bam
+sambamba merge -t 40 /path/to/my/merged3.bam /path/to/my/file5.bam /path/to/my/file6.bam
+sambamba merge -t 40 /path/to/my/merged4.bam /path/to/my/file7.bam /path/to/my/file8.bam
+...
+```
+
+```
+ -account, -a            :   CHPC account name. e.g. our-nodes. <STRING>
+```
+* The account to submit the sbatch job to.
+```
+#SBATCH -A our-nodes
+```
+
+```
+-partition, -p          :   CHPC partition to run jobs on. e.g. our-partition <STRING>
+```
+* The specific parition to submit the sbatch job to.
+```
+#SBATCH -p our-partition
+```
+
+```
+-UID                    :   Your University or employee id. <STRING>
+```
+* Your identification known to the system.
 
 
 
