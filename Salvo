@@ -36,7 +36,7 @@ Additional options:
     -time, -t               :   Time to allow each job to run on node <STRING> (default 1:00:00).
     -node, -n               :   Number of nodes to run across per sbatch job submitted. <INT> default 1).
     -available_nodes, -an   :   Number of jobs to launch and run at any one time. <INT> (default 1).
-    -clean_up, -cu          :   Option will remove launch.index, *sbatch and *out jobs.
+    -clean_up, -c           :   Option will remove launch.index, *sbatch and *out jobs.
     -jobs_per_sbatch, -jps  :   Number of jobs to add to each sbatch script. <INT> (default 1);
     -added_steps, -as       :   Additional step to add to each sbatch job <STRING> (comma separated).
     -just_sbatch            :   This option will create all sbatch jobs die, but not submit them (default FALSE).
@@ -55,7 +55,7 @@ GetOptions(
     "account|a=s",
     "partition|p=s",
     "available_nodes|an=i",
-    "clean_up|cu",
+    "clean_up|c",
     "just_sbatch",
     "added_steps|as=s",
     "chdir=s",
