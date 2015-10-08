@@ -102,6 +102,7 @@ my $CMDS = IO::File->new($salvo_opts{commands_file});
 my @cmds;
 foreach my $cmd (<$CMDS>) {
     chomp $cmd;
+    $cmd =~ s/$/ &/ if ($salvo_opts{jobs_per_sbatch} > 1);
     push @cmds, $cmd;
 }
 $CMDS->close;
@@ -208,6 +209,14 @@ sub writer {
     my $cmds = join("\n", @{$stack} );
     my $extra_steps = join("\n", @steps) if @steps;
 
+    my $wait;
+    if ($salvo_opts{jobs_per_sbatch} > 1) {
+        $wait = 'wait';
+    }
+    else {
+        $wait = '';
+    }
+
     my $sbatch = <<"EOM";
 #!/bin/bash
 #SBATCH -t $salvo_opts{time}
@@ -222,6 +231,8 @@ cd $dir
 $extra_steps
 
 $cmds
+
+$wait
 
 EOM
 
