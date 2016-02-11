@@ -128,8 +128,10 @@ die "[WARN] - sbatch scripts written but not submitted\n"
 if ($salvo_opts{just_sbatch});
 
 ## Review total sbatch to launch.
-my $total = scalar (glob "*sbatch");
-say "[WARN]  - sbatch submission total: $total";
+my @total  = glob "*sbatch";
+chomp @total;
+my $number_of_jobs = scalar @total;
+say "[WARN]  - sbatch submission total: $number_of_jobs";
 say "[INPUT] - continue? [y/n]";
 my $continue = <STDIN>;
 chomp $continue;
