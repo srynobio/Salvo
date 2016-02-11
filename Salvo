@@ -53,7 +53,7 @@ GetOptions(
     "nodes|n=i",
     "account|a=s",
     "partition|p=s",
-    "queue_limit|an=i",
+    "queue_limit|ql=i",
     "clean_up|c",
     "just_sbatch",
     "added_steps|as=s",
@@ -77,7 +77,11 @@ unless (
 
 ## clean up old sbatch scripts.
 say "Looking for and removing any prior sbatch scripts";
-unlink (glob "*sbatch");
+@found_sbatch = `find . -name \"*sbatch\"`;
+chomp @found_sbatch;
+if ( @found_sbatch ) {
+    map { `rm $_` } @found_sbatch;
+}
 
 ## set up some defaults.
 $salvo_opts{jobs_per_sbatch} //= 1;
