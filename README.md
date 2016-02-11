@@ -12,6 +12,7 @@ Synopsis:
 Description:
 
     Designed to aid launching of jobs on Slurm cluster from a command list file.
+    View github page <https://github.com/srynobio/Salvo> for more detailed description.
 
 Required options:
 
@@ -23,13 +24,15 @@ Required options:
 Additional options:
 
     -time, -t               :   Time to allow each job to run on node <STRING> (default 1:00:00).
-    -node, -n               :   Number of nodes to run across per sbatch job submitted. <INT> default 1).
-    -available_nodes, -an   :   Number of jobs to launch and run at any one time. <INT> (default 1).
-    -clean_up, -cu          :   Option will remove launch.index, *sbatch and *out jobs.
-    -jobs_per_sbatch, -jps  :   Number of jobs to add to each sbatch script. <INT> (default 1);
+    -node, -n               :   Number of nodes to run per sbatch job submitted. <INT> default 1).
+    -queue_limit, -ql       :   Number of jobs to launch and run in the queue at one time. <INT> (default 1).
+    -jobs_per_sbatch, -jps  :   Number of jobs to run concurrently, & added to each command. <INT> (default 1);
+    -added_steps, -as       :   Additional step to add to each sbatch job <STRING> (comma separated).
     -just_sbatch            :   This option will create all sbatch jobs die, but not submit them (default FALSE).
     -chdir                  :   This option will tell each sbatch job to cd into this directory before running command. <STRING> (default current).
+    -clean_up, -c           :   Option will remove launch.index, *sbatch and *out jobs.
     -help                   :   Prints this battleworn help message.
+
 ```
 
 # Overview:
