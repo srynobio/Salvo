@@ -165,6 +165,54 @@ $ ./Salvo -as "source .bashrc, module load samtools"
 * Will clean up intermediate files post completion.
 
 
- 
+# Example of common use.
 
+If you plan to allow `Salvo` to manage your jobs submission, it’s advised to use Unix [screen]( http://www.thegeekstuff.com/2010/07/screen-command-examples/) .
+
+
+An example use case would be to run [fastQValidator](https://github.com/statgen/fastQValidator) on a large collection of fastq files.
+
+```
+$ ls *fastq|wc 
+$ 16204
+```
+
+```perl
+ls *fastq | perl -lane 'print "fastQValidator -file $_ > $_.validate.report"' > fastQvalidator.cmd.txt
+```
+
+```
+$ wc fastQvalidator.cmd.txt
+$ 16204
+```
+
+In this example we have 40 nodes, each with 20 CPUs.
+
+```bash 
+ ./Salvo -a kingspeak-guest -p kingspeak-guest -UID u000001 -cf fastQvalidator.cmd.txt -t 5:00:00 -ql 30 -jps 20 
+```
+This will submit all commands in the fastQvalidator.cmd.txt file each with a limit of 5 hours containing 20 jobs.  Importantly, only thirty jobs will be maintained in the queue at anyone time, allowing other members usage and avoid "locking out" others if your jobs are expected to run > ~1 hour.
+
+The example sbatch script will look like the following:
+
+```bash
+#!/bin/bash
+#SBATCH -t 5:00:00
+#SBATCH -N 1
+#SBATCH -A kingspeak-guest
+#SBATCH -p kingspeak-guest
+#SBATCH -J salvo-9794
+#SBATCH -o salvo-9794.out
+
+cd /scratch/ucgd/lustre/u0413537/PCGC/Fastqs
+
+# Example
+fastQValidator -file <input> <output>
+fastQValidator -file <input> <output>
+fastQValidator -file <input> <output>
+fastQValidator -file <input> <output>
+....
+
+wait
+```
 
