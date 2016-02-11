@@ -170,7 +170,7 @@ $ ./Salvo -as "source .bashrc, module load samtools"
 If you plan to allow `Salvo` to manage your jobs submission, it’s advised to use Unix [screen]( http://www.thegeekstuff.com/2010/07/screen-command-examples/) .
 
 
-An example use case would be to run [fastQValidator](https://github.com/statgen/fastQValidator) on a large collection of fastq files.
+An example use-case would be to run [fastQValidator](https://github.com/statgen/fastQValidator) on a large collection of fastq files.
 
 ```
 $ ls *fastq|wc 
