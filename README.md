@@ -47,6 +47,7 @@ Differences between these step given below.
 
 ### Required options:
 
+#### -command_file
 ```
  -command_file, -cf      :   File containing list of commands to run. <FILE>
 ```
@@ -60,8 +61,8 @@ sambamba merge -t 40 /path/to/my/merged3.bam /path/to/my/file5.bam /path/to/my/f
 sambamba merge -t 40 /path/to/my/merged4.bam /path/to/my/file7.bam /path/to/my/file8.bam
 ...
 ```
-----
 
+#### -account
 ```
  -account, -a            :   Cluster account name. e.g. our-nodes. <STRING>
 ```
@@ -70,8 +71,8 @@ sambamba merge -t 40 /path/to/my/merged4.bam /path/to/my/file7.bam /path/to/my/f
 Example:
 #SBATCH -A our-nodes
 ```
-----
 
+#### -partition
 ```
 -partition, -p          :   A partition to run jobs on. e.g. our-partition <STRING>
 ```
@@ -80,22 +81,22 @@ Example:
 Example:
 #SBATCH -p our-partition
 ```
-----
 
+#### -UID
 ```
--UID                    :   Your University or employee id. <STRING>
+-UID :   Your University or employee id. <STRING>
 ```
 * Your identification known to the system.
 
 ### Additional options:
 
+#### -time
 ```
   -time, -t               :   Time to allow each job to run on node <STRING> (default 1:00:00).
 ```
 * Allowed submission run time.
 
-----
-
+#### -node
 ```
   -node, -n               :   Number of nodes to run per sbatch job submitted. <INT> default 1).
 ```
@@ -105,8 +106,8 @@ Example:
 Example:
 #SBATCH -n 10
 ```
-----
 
+#### -queue_limit
 ```
   -queue_limit, -ql       :   Number of jobs to launch and run in the queue at one time. <INT> (default 1)
 ```
@@ -121,8 +122,8 @@ $ 400
 $ ./Salvo -ql 20
 Jobs launched in batches of 20.
 ```
-----
 
+#### -jobs_per_sbatch
 ```
  -jobs_per_sbatch, -jps  :   Number of jobs to run concurrently, & added to each command. <INT> (default 1);
 ```
@@ -133,8 +134,8 @@ Example:
 $ ./Salvo -jps 10
 Each sbatch script generated will have 10 job included, prefixed by the "&" and ending with "wait" bash command.
 ```
-----
 
+#### -added_steps
 ```
   -added_steps, -as :   Additional step to add to each sbatch job <STRING> (comma separated).
 ```
@@ -144,20 +145,20 @@ Each sbatch script generated will have 10 job included, prefixed by the "&" and 
 Example:
 $ ./Salvo -as "source .bashrc, module load samtools"
 ```
-----
 
+#### -just_sbatch
 ```
   -just_sbatch :   This option will create all sbatch jobs die, but not submit them (default FALSE).
 ```
 * As apposed to allowing Salvo to run and manage your jobs, this option will print all the sbatch scripts to your current directory.
-----
 
+#### -chdir
 ```
   -chdir :   This option will tell each sbatch job to cd into this directory before running command. <STRING> (default current).
 ```
 * Will include in your sbatch the directory to change to before execution
-----
 
+#### -clean_up
 ```
   -clean_up, -c :   Option will remove launch.index, *sbatch and *out jobs
 ```
