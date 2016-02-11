@@ -191,7 +191,7 @@ In this example we have 40 nodes, each with 20 CPUs.
 ```bash 
  ./Salvo -a kingspeak-guest -p kingspeak-guest -UID u000001 -cf fastQvalidator.cmd.txt -t 5:00:00 -ql 30 -jps 20 
 ```
-This will submit all commands in the fastQvalidator.cmd.txt file each with a limit of 5 hours containing 20 jobs.  Importantly, only thirty jobs will be maintained in the queue at anyone time, allowing other members usage and avoid "locking out" others if your jobs are expected to run > ~1 hour.
+This will submit all commands in the fastQvalidator.cmd.txt file each with a limit of 5 hours containing 20 jobs.  Importantly, only thirty jobs will be maintained in the queue at anyone time, allowing other members usage and avoid *locking out* others if your jobs are expected to run > ~1 hour.
 
 The example sbatch script will look like the following:
 
