@@ -77,7 +77,7 @@ unless (
 
 ## clean up old sbatch scripts.
 say "Looking for and removing any prior sbatch scripts";
-@found_sbatch = `find . -name \"*sbatch\"`;
+my @found_sbatch = `find . -name \"*sbatch\"`;
 chomp @found_sbatch;
 if ( @found_sbatch ) {
     map { `rm $_` } @found_sbatch;
