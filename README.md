@@ -49,7 +49,7 @@ Differences between these step given below.
 
 #### -command_file
 ```
- -command_file, -cf      :   File containing list of commands to run. <FILE>
+ -command_file, -cf :   File containing list of commands to run. <FILE>
 ```
 * A text file containg each of the commands to run.
 
@@ -64,21 +64,21 @@ sambamba merge -t 40 /path/to/my/merged4.bam /path/to/my/file7.bam /path/to/my/f
 
 #### -account
 ```
- -account, -a            :   Cluster account name. e.g. our-nodes. <STRING>
+ -account, -a :   Cluster account name. e.g. our-nodes. <STRING>
 ```
 * The account to submit the sbatch job to.
 ```
-Example:
+Example: (Result)
 #SBATCH -A our-nodes
 ```
 
 #### -partition
 ```
--partition, -p          :   A partition to run jobs on. e.g. our-partition <STRING>
+-partition, -p :   A partition to run jobs on. e.g. our-partition <STRING>
 ```
 * The specific parition to submit the sbatch job to.
 ```
-Example:
+Example: (Result)
 #SBATCH -p our-partition
 ```
 
@@ -92,28 +92,28 @@ Example:
 
 #### -time
 ```
-  -time, -t               :   Time to allow each job to run on node <STRING> (default 1:00:00).
+  -time, -t :   Time to allow each job to run on node <STRING> (default 1:00:00).
 ```
 * Allowed submission run time.
 
 #### -node
 ```
-  -node, -n               :   Number of nodes to run per sbatch job submitted. <INT> default 1).
+  -node, -n :   Number of nodes to run per sbatch job submitted. <INT> default 1).
 ```
 * The number of nodes to include per each node job.
 
 ```
-Example:
+Example: (Result)
 #SBATCH -n 10
 ```
 
 #### -queue_limit
 ```
-  -queue_limit, -ql       :   Number of jobs to launch and run in the queue at one time. <INT> (default 1)
+  -queue_limit, -ql :   Number of jobs to launch and run in the queue at one time. <INT> (default 1)
 ```
 * The number of job to submit at one time.
 
-If you have a large number of commands to submitting simultaneously, this option will allow you to control how many are launched at any given time.   This will stop queue system overload and monopolizing resources; especially if job are expected to run longer then ~1 hour.
+If you have a large number of commands to submit simultaneously, this option will allow you to control how many are launched at any given time.   This will stop queue system overload and monopolizing resources; especially if job are expected to run longer then ~1 hour.
 
 ```
 Example:
@@ -125,7 +125,7 @@ Jobs launched in batches of 20.
 
 #### -jobs_per_sbatch
 ```
- -jobs_per_sbatch, -jps  :   Number of jobs to run concurrently, & added to each command. <INT> (default 1);
+ -jobs_per_sbatch, -jps  :   Number of jobs to run concurrently. (& added to each command) <INT> (default 1);
 ```
 * Number of job to include to each sbatch script.
 
@@ -215,4 +215,8 @@ fastQValidator -file <input> <output>
 
 wait
 ```
+
+# TODO
+
+Future plans to include ability to launch jobs to guest system, and run to completion.
 
