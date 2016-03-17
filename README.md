@@ -90,6 +90,15 @@ Example: (Result)
 
 ### Additional options:
 
+#### -cluster
+```
+    -cluster, -c :  Which cluster to submit your job to <STRING> (default ucgd)
+                    Options: ucgd, ember, kingspeak_guest, ember_guest
+```
+Example:
+This option will allow you to select if you want job to be submitted to ucgd, yandell-em, kingspeak/ember guest nodes.
+If jobs are submitted to guest system, Salvo (in management mode) will resubmit any jobs which are preempted until finished.
+
 #### -time
 ```
   -time, -t :   Time to allow each job to run on node <STRING> (default 1:00:00).
@@ -101,6 +110,7 @@ Example: (Result)
   -node, -n :   Number of nodes to run per sbatch job submitted. <INT> default 1).
 ```
 * The number of nodes to include per each node job.
+* Useful for running MPI based jobs.
 
 ```
 Example: (Result)

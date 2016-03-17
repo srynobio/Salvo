@@ -39,7 +39,7 @@ Additional options:
     -added_steps, -as       :   Additional step to add to each sbatch job <STRING> (comma separated).
     -just_sbatch            :   This option will create all sbatch jobs die, but not submit them (default FALSE).
     -chdir                  :   This option will tell each sbatch job to cd into this directory before running command. <STRING> (default current).
-    -clean_up, -c           :   Option will remove launch.index, *sbatch and *out jobs.
+    -clean                  :   Option will remove launch.index, *sbatch and *out jobs.
     -help                   :   Prints this battleworn help message.
 
 EOU
@@ -54,7 +54,7 @@ GetOptions(
     "account|a=s",
     "partition|p=s",
     "queue_limit|ql=i",
-    "clean_up|c",
+    "clean",
     "just_sbatch",
     "added_steps|as=s",
     "chdir=s",
@@ -63,7 +63,7 @@ GetOptions(
 );
 
 ## Just run clean up.
-if ( $salvo_opts{clean_up} ) { 
+if ( $salvo_opts{clean} ) { 
     `rm *out *sbatch launch.index`;
     say "Cleaned up!";
     exit(0);
@@ -118,14 +118,15 @@ $CMDS->close;
 my @var;
 push @var, [ splice @cmds, 0, $salvo_opts{jobs_per_sbatch} ] while @cmds;
 
+my $jobid = 1;
 foreach my $group (@var) {
     chomp $group;
-    writer($group);
+    $jobid++;
+    writer($group, $jobid);
 }
 
 ## just create sbatch jobs dont submit.
-die "[WARN] - sbatch scripts written but not submitted\n" 
-if ($salvo_opts{just_sbatch});
+die "[WARN] - sbatch scripts written but not submitted\n" if ($salvo_opts{just_sbatch});
 
 ## Review total sbatch to launch.
 my @total  = glob "*sbatch";
@@ -167,14 +168,18 @@ sleep(10);
 
 # check the status of current sbatch jobs
 # before moving on.
+
 _wait_all_jobs();
+_error_check();
+unlink('launch.index');
 
 ## --------------------------------------------------- ##
 
 sub _jobs_status {
-    my $state = `squeue -u $salvo_opts{UID} |grep -v 'JOBID'|wc -l`;
 
-    if ( $state >= $salvo_opts{queue_limit} ) {
+    my $state = `squeue -A $salvo_opts{partition} -u u0413537 -h | wc -l`;
+
+    if ( $running >= $salvo_opts{queue_limit} ) {
         return 'wait';
     }
     else {
@@ -185,42 +190,120 @@ sub _jobs_status {
 ## --------------------------------------------------- ##
 
 sub _wait_all_jobs {
+    my $node = shift;
+
+    my $process;
+    do {
+        sleep(60);
+        _relaunch();
+        sleep(60);
+        $process = _process_check();
+    } while ($process);
+}
+
+## --------------------------------------------------- ##
+
+sub _relaunch {
+    my @error = `grep error *.out`;
+    chomp @error;
+    if ( !@error ) { return }
+
+    my %relaunch;
+    my @error_files;
+    foreach my $cxl (@error) {
+        chomp $cxl;
+
+        if ( $cxl =~ /TIME LIMIT/ ) {
+            say "[WARN] a job was canceled due to time time limit";
+            next;
+        };
+
+        next unless ( $cxl =~ /PREEMPTION/ );
+
+        my @ids = split /\s/, $cxl;
+
+        ## collect error files.
+        my ( $sbatch, undef ) = split /:/, $ids[0];
+        push @error_files, $sbatch;
+
+        ## record launch id.
+        $relaunch{ $ids[4] }++;
+    }
+
+    open( my $FH, '>>', 'launch.index' );
+
     my @indexs = `cat launch.index`;
     chomp @indexs;
 
-    foreach my $job (@indexs) {
-        my @parts = split /\s/, $job;
+    foreach my $line (@indexs) {
+        chomp $line;
+        my @parts = split /\s/, $line;
 
-        LINE:
-        my $state = `scontrol show job $parts[-1] |grep 'JobState'`;
-        if ( $state =~ /(RUNNING|PENDING)/ ) {
-            sleep(10);
-            goto LINE;
+        ## find in lookup and dont re-relaunch.
+        if ( $relaunch{ $parts[-1] } ) {
+            print $FH "$parts[0]\t";
+            system "sbatch $parts[0] >> launch.index";
+            say "[WARN] Relaunching job $parts[0]";
         }
-        else { next }
     }
-    return;
+    ## remove error files.
+    unlink @error_files;
+}
+
+## --------------------------------------------------- ##
+
+sub _process_check {
+
+    my @processing = `squeue -A $salvo_opts{partition} -u u0413537 -h --format=%A`;
+    chomp @processing;
+    if ( !@processing ) { return 0 }
+
+    ## check run specific processing.
+    ## make lookup of what is running.
+    my %running;
+    foreach my $active ( @processing ) {
+        chomp $active;
+        $active =~ s/\s+//g;
+        $running{$active}++;
+    }
+
+    ## check what was launched.
+    open(my $LAUNCH, '<', 'launch.index') or die "[ERROR] Can't find needed launch.index file.";
+
+    my $current = 0;
+    foreach my $launched ( <$LAUNCH> ) {
+        chomp $launched;
+        my @result = split /\s+/, $launched;
+
+        if ( $running{$result[-1]} ) {
+            $current++;
+        }
+    }
+    ($current) ? (return 1) : (return 0);
+}
+
+## --------------------------------------------------- ##
+
+sub _error_check {
+    my $self = shift;
+
+    my @error = `grep error *.out`;
+    if ( !@error ) { return }
+
+    $self->ERROR("Jobs could not be launch or completed");
 }
 
 ## --------------------------------------------------- ##
 
 sub writer {
-    my $stack = shift;
+    my ($stack, $jobid) = @_;
 
-    my $jobname = 'salvo-' . int(rand(10000));
+    my $jobname = 'salvo-' . $jobid;
     my $slurm_out = $jobname . '.out';
     my $outfile = $jobname . '.sbatch';
 
     my $cmds = join("\n", @{$stack} );
     my $extra_steps = join("\n", @steps) if @steps;
-
-    my $wait;
-    if ($salvo_opts{jobs_per_sbatch} > 1) {
-        $wait = 'wait';
-    }
-    else {
-        $wait = '';
-    }
 
     my $sbatch = <<"EOM";
 #!/bin/bash
@@ -237,7 +320,7 @@ $extra_steps
 
 $cmds
 
-$wait
+wait
 
 EOM
 
@@ -248,5 +331,4 @@ close $OUT;
 }
 
 ## --------------------------------------------------- ##
-
 
