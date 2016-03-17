@@ -4,7 +4,7 @@
 ```
 Synopsis:
 
-    Salvo - Slurm command and job launcher v 0.1.0
+    Salvo - Slurm command and job launcher v 0.1.1
 
     ./Salvo -command_file <FILE> -account <STRING> -partition <STRING> -UID <STRING>
     ./Salvo -command_file <FILE> -account <STRING> -partition <STRING> -UID <STRING> -just_batch
