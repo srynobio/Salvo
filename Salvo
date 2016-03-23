@@ -285,12 +285,10 @@ sub _process_check {
 ## --------------------------------------------------- ##
 
 sub _error_check {
-    my $self = shift;
-
     my @error = `grep error *.out`;
     if ( !@error ) { return }
 
-    $self->ERROR("Jobs could not be launch or completed");
+    say "[WARN] errors were found in salvo output files";
 }
 
 ## --------------------------------------------------- ##
