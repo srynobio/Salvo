@@ -80,6 +80,7 @@ say "Looking for and removing any prior sbatch scripts";
 my @found_sbatch = `find . -name \"*sbatch\"`;
 chomp @found_sbatch;
 if ( @found_sbatch ) {
+    say "removing found sbatch scripts";
     map { `rm $_` } @found_sbatch;
 }
 
@@ -190,7 +191,6 @@ sub _jobs_status {
 ## --------------------------------------------------- ##
 
 sub _wait_all_jobs {
-    my $node = shift;
 
     my $process;
     do {
@@ -254,7 +254,7 @@ sub _relaunch {
 
 sub _process_check {
 
-    my @processing = `squeue -A $salvo_opts{partition} -u u0413537 -h --format=%A`;
+    my @processing = `squeue -A $salvo_opts{account} -u u0413537 -h --format=%A`;
     chomp @processing;
     if ( !@processing ) { return 0 }
 
