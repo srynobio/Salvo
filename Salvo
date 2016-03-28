@@ -177,10 +177,9 @@ unlink('launch.index');
 ## --------------------------------------------------- ##
 
 sub _jobs_status {
-
     my $state = `squeue -A $salvo_opts{partition} -u u0413537 -h | wc -l`;
 
-    if ( $running >= $salvo_opts{queue_limit} ) {
+    if ( $state >= $salvo_opts{queue_limit} ) {
         return 'wait';
     }
     else {
