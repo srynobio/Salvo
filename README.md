@@ -2,24 +2,38 @@
 ![alt text](https://github.com/srynobio/Salvo/blob/master/img/salvo3.jpg)
 
 ```
+
 Synopsis:
 
-    Salvo - Slurm command and job launcher v 0.1.1
+    Salvo - Slurm command and job launcher v 0.2.1
 
-    ./Salvo -command_file <FILE> -account <STRING> -partition <STRING> -UID <STRING>
-    ./Salvo -command_file <FILE> -account <STRING> -partition <STRING> -UID <STRING> -just_batch
+    ./Salvo -command_file <FILE> -account <STRING> -partition <STRING> -uid <STRING>
+    ./Salvo -command_file <FILE> -account <STRING> -partition <STRING> -uid <STRING> -just_batch
 
 Description:
 
     Designed to aid launching of jobs on Slurm cluster from a command list file.
     View github page <https://github.com/srynobio/Salvo> for more detailed description.
 
+    Version 0.2.1 now allows CHPC users to submit jobs to:
+        kingspeak-guest
+        ash-guest
+        lonepeak-guest
+        ember-guest.
+
 Required options:
 
     -command_file, -cf      :   File containing list of commands to run. <FILE>
     -account, -a            :   CHPC account name. e.g. yandell-em. <STRING>
     -partition, -p          :   CHPC partition to run jobs on. e.g. ember-freecycle <STRING>
-    -UID                    :   Your University or employee id. <STRING>
+    -cluster, -c            :   Cluster to launch to.
+    -uid                    :   Your University or employee id. <STRING>
+
+
+Options without full requirements:
+
+    -sinfo_idle, -si        :   Prints to STDOUT all idle nodes in all cluster environments.
+    -squeue_me, -sm         :   Prints to STDOUT squeue information in all cluster environments under your uid number. (uid required)
 
 Additional options:
 
@@ -30,10 +44,13 @@ Additional options:
     -added_steps, -as       :   Additional step to add to each sbatch job <STRING> (comma separated).
     -just_sbatch            :   This option will create all sbatch jobs die, but not submit them (default FALSE).
     -chdir                  :   This option will tell each sbatch job to cd into this directory before running command. <STRING> (default current).
-    -clean_up, -c           :   Option will remove launch.index, *sbatch and *out jobs.
+    -clean                  :   Option will remove launch.index, *sbatch and *out jobs.
     -help                   :   Prints this battleworn help message.
 
 ```
+
+# Updates for version 0.2.1
+* Version 0.2.1 now allows CHPC users to submit jobs to multiple clusters 
 
 # Overview:
 Often it gets tedious creating sbatch scripts every time you want to launch n number of jobs on a cluster.  Salvo is designed to give you a couple of options when launching jobs in a [slurm](http://slurm.schedmd.com/) based environment:
@@ -64,22 +81,22 @@ sambamba merge -t 40 /path/to/my/merged4.bam /path/to/my/file7.bam /path/to/my/f
 
 #### -account
 ```
- -account, -a :   Cluster account name. e.g. our-nodes. <STRING>
+ -account, -a :   Cluster account name. e.g. owner-guest <STRING>
 ```
 * The account to submit the sbatch job to.
 ```
 Example: (Result)
-#SBATCH -A our-nodes
+#SBATCH -A owner-guest
 ```
 
 #### -partition
 ```
--partition, -p :   A partition to run jobs on. e.g. our-partition <STRING>
+-partition, -p :   A partition to run jobs on. e.g. kingspeak-guest <STRING>
 ```
 * The specific parition to submit the sbatch job to.
 ```
 Example: (Result)
-#SBATCH -p our-partition
+#SBATCH -p kingspeak-guest
 ```
 
 #### -UID
