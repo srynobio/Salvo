@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# Salvo-boom
+# Salvo
 use strict;
 use warnings qw(io);
 use feature 'say';
@@ -9,7 +9,7 @@ use IO::Dir;
 use File::Find;
 use Cwd;
 
-BEGIN {
+INIT {
     ## environmental variables to work with.
     $ENV{SBATCH} = {
         lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/sbatch',
@@ -32,6 +32,7 @@ BEGIN {
         ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/sinfo',
     };
 }
+
 
 my $usage = <<"EOU";
 
@@ -278,11 +279,10 @@ sub _relaunch {
         my ( $sbatch, undef ) = split /:/, $ids[0];
         push @error_files, $sbatch;
 
-        ## record launch id.
-        $relaunch{ $ids[4] }++;
+        ## record launch id with sbatch script
+        $sbatch =~ s/out/sbatch/;
+        $relaunch{ $ids[4] } = $sbatch;
     }
-
-    open( my $FH, '>>', 'launch.index' );
 
     my @indexs = `cat launch.index`;
     chomp @indexs;
@@ -293,9 +293,8 @@ sub _relaunch {
 
         ## find in lookup and dont re-relaunch.
         if ( $relaunch{ $parts[-1] } ) {
-            print $FH "$parts[0]\t";
-            system "$ENV{SBATCH}->{$salvo_opts{cluster}} $parts[0] >> launch.index";
-            say "[WARN] Relaunching job $parts[0]";
+            system "$ENV{SBATCH}->{$salvo_opts{cluster}} $relaunch{$parts[-1]} >> launch.index";
+            say "[WARN] Relaunching job $relaunch{$parts[-1]}";
         }
     }
     ## remove error files.
