@@ -76,6 +76,7 @@ Additional options:
     -jobs_per_sbatch, -jps  :   Number of jobs to run concurrently, & added to each command. <INT> (default 1);
     -added_steps, -as       :   Additional step to add to each sbatch job <STRING> (comma separated).
     -just_sbatch            :   This option will create all sbatch jobs die, but not submit them (default FALSE).
+    -exclude_node, -en      :   List of nodes to exclude (in quotes) in your sbatch script. example: "kp[001-095,168-195,200-227]".
     -chdir                  :   This option will tell each sbatch job to cd into this directory before running command. <STRING> (default current).
     -clean                  :   Option will remove launch.index, *sbatch and *out jobs.
     -help                   :   Prints this battleworn help message.
@@ -99,6 +100,7 @@ GetOptions(
     "chdir=s",
     "uid=s",
     "squeue_me|sm",
+    "exclude_node|en=s",
     "sinfo_idle|si",
     "help|h",
 );
@@ -266,21 +268,22 @@ sub _relaunch {
     foreach my $cxl (@error) {
         chomp $cxl;
 
+        my @ids = split /\s/, $cxl;
+        my ( $sbatch, undef ) = split /:/, $ids[0];
+
+        ## add to error array before changes
+        push @error_files, $sbatch;
+
+        ## rename as sbatch script 
+        $sbatch =~ s/out/sbatch/;
+
         if ( $cxl =~ /TIME LIMIT/ ) {
-            say "[WARN] a job was canceled due to time limit";
+            say "[WARN] $sbatch was cancelled due to time limit";
             next;
         };
 
-        next unless ( $cxl =~ /PREEMPTION/ );
-
-        my @ids = split /\s/, $cxl;
-
-        ## collect error files.
-        my ( $sbatch, undef ) = split /:/, $ids[0];
-        push @error_files, $sbatch;
-
         ## record launch id with sbatch script
-        $sbatch =~ s/out/sbatch/;
+        next unless ( $cxl =~ /PREEMPTION|CANCELLED/ );
         $relaunch{ $ids[4] } = $sbatch;
     }
 
@@ -370,6 +373,8 @@ sub writer {
     my $cmds = join("\n", @{$stack} );
     my $extra_steps = join("\n", @steps) if @steps;
 
+    my $exclude = "#SBATCH -x $salvo_opts{exclude_node}" || '';
+
     my $sbatch = <<"EOM";
 #!/bin/bash
 #SBATCH -t $salvo_opts{time}
@@ -378,6 +383,7 @@ sub writer {
 #SBATCH -p $salvo_opts{partition}
 #SBATCH -J $jobname
 #SBATCH -o $slurm_out
+$exclude
 
 cd $dir
 
