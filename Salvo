@@ -373,7 +373,14 @@ sub writer {
     my $cmds = join("\n", @{$stack} );
     my $extra_steps = join("\n", @steps) if @steps;
 
-    my $exclude = "#SBATCH -x $salvo_opts{exclude_node}" || '';
+    ## add the exclude option
+    my $exclude;
+    if ($salvo_opts{exclude_node} ) {
+        $exclude = "#SBATCH -x $salvo_opts{exclude_node}";
+    }
+    else {
+        $exclude = '';
+    }
 
     my $sbatch = <<"EOM";
 #!/bin/bash
