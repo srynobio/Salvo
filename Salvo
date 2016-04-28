@@ -259,8 +259,12 @@ sub _wait_all_jobs {
 ## --------------------------------------------------- ##
 
 sub _relaunch {
-    my @error = `grep error *.out`;
-    chomp @error;
+
+    my @error;
+    if ( -e '*.out' ) {
+        @error = `grep error *.out`;
+        chomp @error;
+    }
     if ( !@error ) { return }
 
     my %relaunch;
@@ -269,13 +273,14 @@ sub _relaunch {
         chomp $cxl;
 
         my @ids = split /\s/, $cxl;
-        my ( $sbatch, undef ) = split /:/, $ids[0];
+        my ( $error_file, undef ) = split /:/, $ids[0];
+        ##my ( $sbatch, undef ) = split /:/, $ids[0];
 
         ## add to error array before changes
-        push @error_files, $sbatch;
+        push @error_files, $error_file;
 
         ## rename as sbatch script 
-        $sbatch =~ s/out/sbatch/;
+        ( my $sbatch = $error_file) =~ s/out/sbatch/;
 
         if ( $cxl =~ /TIME LIMIT/ ) {
             say "[WARN] $sbatch was cancelled due to time limit";
@@ -308,7 +313,7 @@ sub _relaunch {
 
 sub _process_check {
 
-    my @processing = `$ENV{SQUEUE}->{$salvo_opts{cluster}} -A $salvo_opts{account} -u u0413537 -h --format=%A`;
+    my @processing = `$ENV{SQUEUE}->{$salvo_opts{cluster}} -A $salvo_opts{account} -u $salvo_opts{uid} -h --format=%A`;
     chomp @processing;
     if ( !@processing ) { return 0 }
 
