@@ -31,8 +31,14 @@ INIT {
         kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/sinfo',
         ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/sinfo',
     };
-}
 
+    $ENV{SCANCEL} = {
+        ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/scancel',
+        lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/scancel',
+        kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/scancel',
+        ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/scancel',
+    };
+}
 
 my $usage = <<"EOU";
 
@@ -51,7 +57,7 @@ Description:
     Version 0.2.1 now allows CHPC users to submit jobs to:
         kingspeak-guest
         ash-guest
-        lonepeak-guest
+        lonepeak-guest (currently does not have access to UCGD lustre space).
         ember-guest.
 
 Required options:
@@ -67,6 +73,7 @@ Options without full requirements:
 
     -sinfo_idle, -si        :   Prints to STDOUT all idle nodes in all cluster environments.
     -squeue_me, -sm         :   Prints to STDOUT squeue information in all cluster environments under your uid number. (uid required)
+    -scancel, -cxl          :   Will run the scancel command on requested cluster.  (uid, account, cluster required).
 
 Additional options:
 
@@ -100,6 +107,7 @@ GetOptions(
     "chdir=s",
     "uid=s",
     "squeue_me|sm",
+    "scancel|cxl",
     "exclude_node|en=s",
     "sinfo_idle|si",
     "help|h",
@@ -119,10 +127,18 @@ if ( $salvo_opts{sinfo_idle} ) {
 }
 
 if ( $salvo_opts{squeue_me} ) {
-    if ( !$salvo_opts{uid} ) {
+    unless ( $salvo_opts{uid} ) {
         die $usage, "-uid required!";
     }
     squeue_me();
+    exit(0);
+}
+
+if ( $salvo_opts{scancel} ) {
+    unless ( $salvo_opts{uid} and $salvo_opts{account} and $salvo_opts{cluster} ) {
+        die $usage, "-uid, -account, -cluster required!";
+    }
+    scancel();
     exit(0);
 }
 
@@ -347,7 +363,8 @@ sub _error_check {
     my @error = `grep error *.out`;
     if ( !@error ) { return }
 
-    say "[WARN] errors were found in salvo output files";
+    say "[WARN] errors were found in salvo output files", 
+    map { say "[WARN] Output File: $_" } @error;
 }
 
 ## --------------------------------------------------- ##
@@ -364,6 +381,14 @@ sub sinfo_idle {
     foreach my $cluster ( keys %{ $ENV{SINFO} } ) {
         system("$ENV{SINFO}->{$cluster} | grep idle");
     }
+}
+
+## --------------------------------------------------- ##
+
+sub scancel {
+    my $cluster = $salvo_opts{cluster};
+    say "[WARN] canceling jobs on $cluster";
+    system("$ENV{SCANCEL}->{$cluster} -A $salvo_opts{account} -u $salvo_opts{uid}");
 }
 
 ## --------------------------------------------------- ##
