@@ -24,7 +24,7 @@ has user => (
 );
 
 has command_file => (
-    is => 'ro',
+    is      => 'ro',
     default => sub {
         my $self = shift;
         return $self->{command_file};
@@ -32,7 +32,7 @@ has command_file => (
 );
 
 has jobs_per_sbatch => (
-    is => 'ro',
+    is      => 'ro',
     default => sub {
         my $self = shift;
         return $self->{jobs_per_sbatch} || 1;
@@ -40,7 +40,7 @@ has jobs_per_sbatch => (
 );
 
 has mode => (
-    is => 'ro',
+    is      => 'ro',
     default => sub {
         my $self = shift;
         return $self->{mode};
@@ -48,7 +48,7 @@ has mode => (
 );
 
 has account => (
-    is => 'rw',
+    is      => 'rw',
     default => sub {
         my $self = shift;
         return $self->{account};
@@ -56,7 +56,7 @@ has account => (
 );
 
 has partition => (
-    is => 'rw',
+    is      => 'rw',
     default => sub {
         my $self = shift;
         return $self->{partition};
@@ -64,23 +64,23 @@ has partition => (
 );
 
 has concurrent => (
-    is => 'ro',
+    is      => 'ro',
     default => sub {
         my $self = shift;
         return $self->{concurrent} || undef;
     },
 );
 
-has exclude_nodes  => (
-    is => 'ro',
+has exclude_nodes => (
+    is      => 'ro',
     default => sub {
         my $self = shift;
         return $self->{exclude_nodes};
     },
 );
 
-has exclude_cluster  => (
-    is => 'ro',
+has exclude_cluster => (
+    is      => 'ro',
     default => sub {
         my $self = shift;
         return $self->{exclude_cluster} || 'NULL';
@@ -88,7 +88,7 @@ has exclude_cluster  => (
 );
 
 has work_dir => (
-    is => 'ro',
+    is      => 'ro',
     default => sub {
         my $self = shift;
         return $self->{work_dir} || getcwd;
@@ -132,7 +132,6 @@ has hyperthread => (
     },
 );
 
-
 ## ----------------------------------------------------- ##
 ##                     Methods                           ##
 ## ----------------------------------------------------- ##
@@ -174,7 +173,7 @@ sub BUILD {
     }
 
     ## populate the object.
-    foreach my $options (keys %{$args}) {
+    foreach my $options ( keys %{$args} ) {
         $self->{$options} = $args->{$options};
     }
 }
@@ -206,8 +205,7 @@ sub ican_access {
     my $useable_nodes = $self->_ican_find;
     my $user          = $self->user;
 
-    my $access =
-      `sacctmgr list assoc format=account%30,cluster%30,qos%30 user=$user`;
+    my $access = `sacctmgr list assoc format=account%30,cluster%30,qos%30 user=$user`;
     my @node_access = split /\n/, $access;
     my @node_data = splice( @node_access, 2, $#node_access );
 
@@ -304,8 +302,6 @@ sub _ican_find {
         foreach my $line (@s_info) {
             chomp $line;
             my @node_details = split /\s+/, $line;
-
-#####            next if ( $node_details[-1] =~ /ucgd/ );
 
             ## remove hyphen
             $node_details[-1] =~ s/\-/_/g;
