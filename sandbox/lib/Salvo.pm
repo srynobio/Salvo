@@ -4,6 +4,7 @@ use warnings;
 use feature 'say';
 use Moo;
 use Cwd;
+use File::Copy;
 
 with qw {
   Reporter
@@ -263,29 +264,6 @@ sub ican_access {
 
 ## ----------------------------------------------------- ##
 
-sub cmds {
-    my $self = shift;
-
-    my $file = $self->command_file;
-    open( my $IN, '<', $file );
-
-    my @cmd_stack;
-    foreach my $cmd (<$IN>) {
-        chomp $cmd;
-
-        if ( $self->jobs_per_sbatch > 1 and $self->concurrent ) {
-            push @cmd_stack, "$cmd &";
-        }
-        else {
-            push @cmd_stack, $cmd;
-        }
-    }
-    close $IN;
-    return \@cmd_stack;
-}
-
-## ----------------------------------------------------- ##
-
 sub _ican_find {
     my $self = shift;
 
@@ -317,6 +295,33 @@ sub _ican_find {
         }
     }
     return \%found_nodes;
+}
+
+## ----------------------------------------------------- ##
+
+sub cmds {
+    my $self = shift;
+
+    my $file = $self->command_file;
+    open( my $IN, '<', $file );
+
+    ## rename original file.
+    copy($file, "$file.ORIGINAL") unless ( -e "$file.ORIGINAL");
+    rename $file, "$file.read-commands";
+
+    my @cmd_stack;
+    foreach my $cmd (<$IN>) {
+        chomp $cmd;
+
+        if ( $self->jobs_per_sbatch > 1 and $self->concurrent ) {
+            push @cmd_stack, "$cmd &";
+        }
+        else {
+            push @cmd_stack, $cmd;
+        }
+    }
+    close $IN;
+    return \@cmd_stack;
 }
 
 ## ----------------------------------------------------- ##

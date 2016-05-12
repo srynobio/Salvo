@@ -4,14 +4,9 @@ use warnings;
 use feature 'say';
 use Moo::Role;
 
-
-
 ## ----------------------------------------------------- ##
 ##                    Attributes                         ##
 ## ----------------------------------------------------- ##
-
-
-
 
 ## ----------------------------------------------------- ##
 ##                     Methods                           ##
@@ -24,7 +19,7 @@ sub report_node_info {
     say "---------\t--------------\t---------\t--------";
 
     my $accs_nodes = $self->ican_access;
-    if ( ! keys %{$accs_nodes} ) {
+    if ( !keys %{$accs_nodes} ) {
         say "[WARN] No available nodes to review.";
         exit(0);
     }
@@ -54,7 +49,6 @@ sub report_node_info {
     say "[Total AvailableCPUs: $total_cpus]";
 }
 
-
 ## ----------------------------------------------------- ##
 
 sub squeue_me {
@@ -78,9 +72,16 @@ sub sinfo_idle {
 
 ## -------------------------------------------------------------------- ##
 
-sub WARN {
-    my ($self, $message) = @_;
+sub INFO {
+    my ( $self, $message ) = @_;
+    say STDOUT "[INFO] $message";
+    return;
+}
 
+## -------------------------------------------------------------------- ##
+
+sub WARN {
+    my ( $self, $message ) = @_;
     say STDOUT "[WARN] $message";
     return;
 }
@@ -88,8 +89,7 @@ sub WARN {
 ## -------------------------------------------------------------------- ##
 
 sub ERROR {
-    my ($self, $message) = @_;
-
+    my ( $self, $message ) = @_;
     say STDERR "[ERROR] $message";
     exit(1);
 }
