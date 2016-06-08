@@ -62,6 +62,14 @@ sub squeue_me {
 
 ## -------------------------------------------------------------------- ##
 
+sub timestamp {
+    my $self = shift;
+    my $time = localtime;
+    return $time;
+}
+
+## -------------------------------------------------------------------- ##
+
 sub sinfo_idle {
     my $self = shift;
 
@@ -74,7 +82,8 @@ sub sinfo_idle {
 
 sub INFO {
     my ( $self, $message ) = @_;
-    say STDOUT "[INFO] $message";
+    my $time = $self->timestamp;
+    say STDOUT "[INFO] [$time] $message";
     return;
 }
 
@@ -82,7 +91,8 @@ sub INFO {
 
 sub WARN {
     my ( $self, $message ) = @_;
-    say STDOUT "[WARN] $message";
+    my $time = $self->timestamp;
+    say STDOUT "[WARN] [$time] $message";
     return;
 }
 
@@ -90,7 +100,8 @@ sub WARN {
 
 sub ERROR {
     my ( $self, $message ) = @_;
-    say STDERR "[ERROR] $message";
+    my $time = $self->timestamp;
+    say STDERR "[ERROR] [$time] $message";
     exit(1);
 }
 

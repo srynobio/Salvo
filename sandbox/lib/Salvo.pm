@@ -9,7 +9,8 @@ use File::Copy;
 with qw {
   Reporter
   Writer
-  Processer
+  Guest
+  Dedicated
 };
 
 ## ----------------------------------------------------- ##
@@ -25,7 +26,7 @@ has user => (
 );
 
 has command_file => (
-    is      => 'ro',
+    is      => 'rw',
     default => sub {
         my $self = shift;
         return $self->{command_file};
@@ -181,6 +182,32 @@ sub BUILD {
 
 ## ----------------------------------------------------- ##
 
+sub fire {
+
+    my $self = shift;
+
+    if ( $self->mode eq 'dedicated' ) {
+        $self->dedicated;
+    }
+    elsif ( $self->mode eq 'guest' ) {
+        $self->guest;
+    }
+    else {
+        $self->ERROR("Misfire!! $self->mode not an mode option.");
+    }
+
+    ## update command file back to original
+#    my $file   = $self->command_file;
+#    my $rename = "$file.ORIGINAL";
+#    rename $rename, $file if $rename;
+
+    unlink 'launch.index';
+    say "Salvo Done!";
+    exit(0);
+}
+
+## ----------------------------------------------------- ##
+
 sub additional_steps {
     my $self = shift;
 
@@ -299,15 +326,17 @@ sub _ican_find {
 
 ## ----------------------------------------------------- ##
 
-sub cmds {
+sub get_cmds {
     my $self = shift;
 
     my $file = $self->command_file;
     open( my $IN, '<', $file );
 
-    ## rename original file.
-    copy($file, "$file.ORIGINAL") unless ( -e "$file.ORIGINAL");
-    rename $file, "$file.read-commands";
+    ## create tmp file for relaunched jobs
+    if ( ! -e "$file.tmp" ) {
+        my $new_file = "$file.tmp";
+        $self->{command_file} = $new_file;
+    }
 
     my @cmd_stack;
     foreach my $cmd (<$IN>) {

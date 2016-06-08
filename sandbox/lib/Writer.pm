@@ -48,9 +48,7 @@ cd $self->work_dir
 
 $extra_steps
 
-## Commands
 $cmds
-## End of Commands
 
 wait
 
@@ -90,9 +88,9 @@ sub guest_writer {
     my $partition = $info_hash->{account_info}->{PARTITION};
     $account   =~ s/_/-/g;
     $partition =~ s/_/-/g;
-    my $work_dir  = $self->work_dir;
-    my $runtime   = $self->runtime;
-    my $node_id   = $node_hash->{NODE};
+    my $work_dir = $self->work_dir;
+    my $runtime  = $self->runtime;
+    my $node_id  = $node_hash->{NODE};
 
     my $sbatch = <<"EOM";
 #!/bin/bash
@@ -187,7 +185,7 @@ sub random_id {
     my $self = shift;
 
     my $id = int( rand(10000) );
-    if ( -e "salvo-$id.sbatch" or -e "salvo-$id.out" ) {
+    if ( -e "salvo-$id.sbatch.launched" ) {
         $id = $self->random_id;
     }
     return $id;

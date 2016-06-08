@@ -1,9 +1,10 @@
-package Processer;
+package Guest;
 use strict;
 use warnings;
 use feature 'say';
 use Moo::Role;
 use IO::Dir;
+
 
 ## ----------------------------------------------------- ##
 ##                    Attributes                         ##
@@ -13,72 +14,21 @@ use IO::Dir;
 ##                     Methods                           ##
 ## ----------------------------------------------------- ##
 
-sub fire {
-
-    my $self = shift;
-
-    if ( $self->mode eq 'dedicated' ) {
-        $self->dedicated;
-    }
-    elsif ( $self->mode eq 'guest' ) {
-        $self->guest;
-    }
-    else {
-        $self->ERROR("Misfire!! $self->mode not an mode option.");
-    }
-
-    ## update command file back to original
-    my $file   = $self->command_file;
-    my $rename = "$file.read-commands";
-    rename $rename, $file;
-
-    unlink 'launch.index';
-    say "Salvo Done!";
-    exit(0);
-}
-
-## ----------------------------------------------------- ##
-
-sub dedicated {
-    my $self = shift;
-
-    my $cmds = $self->cmds;
-
-    # split base on jps, then create sbatch scripts.
-    my @stack;
-    push @stack, [ splice @{$cmds}, 0, $self->jobs_per_sbatch ] while @{$cmds};
-
-    foreach my $cmd (@stack) {
-        chomp $cmd;
-        $self->dedicated_writer( $cmd );
-    }
-
-    ## launch sbatch scripts.
-    $self->dedicated_launcher;
-
-    # give sbatch system time to work
-    sleep(30);
-
-    # check the status of current sbatch jobs
-    # before moving on.
-    $self->_wait_all_jobs();
-    $self->_error_check();
-}
-
-## ----------------------------------------------------- ##
-
 sub guest {
     my $self = shift;
-    my $cmds = $self->cmds;
+    my $cmds = $self->get_cmds;
 
   RECHECK:
     my $access = $self->ican_access;
 
+    my %claimed;
     while ( my ( $node_name, $value ) = each %{$access} ) {
         last unless ( @{$cmds} );
 
         my $info_hash       = pop @{$value};
         my $number_of_nodes = pop @{$value};
+
+        next unless ( $number_of_nodes >= 1 );
 
         ## check for excluded cluster.
         if ( $info_hash->{account_info}->{CLUSTER} eq $self->exclude_cluster ) {
@@ -88,7 +38,12 @@ sub guest {
         if ( $self->nodes_per_sbatch > 1 ) {
 
             ## check if there are enough nodes if asked
-            next if ( $number_of_nodes < $self->nodes_per_sbatch );
+            if ( $number_of_nodes < $self->nodes_per_sbatch ) {
+                $self->INFO(
+                    "Cluster $info_hash->{account_info}->{CLUSTER} does not have enough nodes."
+                );
+                next;
+            }
 
             $self->INFO("multi-node job to $info_hash->{account_info}->{CLUSTER} cluster.");
             $self->INFO("On $info_hash->{account_info}->{ACCOUNT} account.");
@@ -108,16 +63,16 @@ sub guest {
         }
 
         else {
-
             ## step message
-            $self->INFO("Launching to $info_hash->{account_info}->{CLUSTER} cluster.");
-            $self->INFO("Total of $number_of_nodes nodes available.");
-            $self->INFO("On $info_hash->{account_info}->{ACCOUNT} account.");
-            $self->INFO("On $info_hash->{account_info}->{PARTITION} partition.");
+            $self->INFO("Checking $info_hash->{account_info}->{CLUSTER} cluster for nodes.");
             $self->INFO("----------------------------------------------------");
 
             foreach my $node ( @{$value} ) {
                 last unless ( @{$cmds} );
+
+                ## check if node already claimed or add to store.
+                next if ( $self->{node_track}{$node->{NODE}} );
+                $self->{node_track}{$node->{NODE}}++;
 
                 ## check for hyperthread option.
                 if ( $self->hyperthread ) {
@@ -139,26 +94,28 @@ sub guest {
                 }
                 $self->guest_writer( $node, \@stack, $info_hash );
             }
-            ## launch to node!
         }
 
-            $self->guest_launcher($info_hash);
-
-
-
-        while ( @{$cmds} ) {
-            my $num_of_jobs = scalar @{$cmds};
-            $self->INFO("~~ No available nodes, but commands remain. ~~");
-            $self->INFO("~~ Number of commands left: $num_of_jobs ~~");
-            $self->INFO("~~ Waiting for more nodes.... ~~");
-            $self->INFO("----------------------------------------------------");
-   ##    sleep(30);
-            $self->INFO("Checking the state of all jobs.");
-            $self->state_check;
-            goto RECHECK;
-        }
-        $self->_wait_all_jobs();
+        ## launch guest jobs
+        $self->guest_launcher($info_hash);
     }
+
+    while ( @{$cmds} ) {
+        my $num_of_jobs = scalar @{$cmds};
+        $self->INFO("~~ All available nodes used,  but commands remain. ~~");
+        $self->INFO("~~ Number of commands left: $num_of_jobs. ~~");
+        $self->INFO("~~ Waiting/Checking for more nodes.... ~~");
+        $self->INFO("----------------------------------------------------");
+
+        ## quick check for hanging jobs.
+        sleep(60);
+        $self->INFO("Checking for hanging jobs.");
+        $self->_guest_hanging_check;
+        goto RECHECK;
+    }
+    $self->INFO("Reviewing state of jobs...");
+    $self->INFO("Relaunching if needed...");
+    $self->_guest_wait_all_jobs();
 }
 
 ## ----------------------------------------------------- ##
@@ -176,90 +133,36 @@ sub guest_launcher {
         next unless ( $launch =~ /sbatch$/ );
 
         print $OUT "$launch\t";
-        my $batch = sprintf(
-            "%s %s >> launch.index",
-            $self->{SBATCH}->{$info_hash->{account_info}->{CLUSTER}}, $launch 
-        );
+        my $batch = sprintf( "%s %s >> launch.index",
+            $self->{SBATCH}->{ $info_hash->{account_info}->{CLUSTER} },
+            $launch );
         system $batch;
 
-        ## rename so not mislaunched.
+        ## rename so not double launched.
         rename $launch, "$launch.launched";
     }
 }
 
 ## ----------------------------------------------------- ##
 
-sub dedicated_launcher {
+sub _guest_wait_all_jobs {
     my $self = shift;
-
-    my $DIR     = IO::Dir->new(".");
-    my $running = 0;
-    foreach my $launch ( $DIR->read ) {
-        chomp $launch;
-        next unless ( $launch =~ /sbatch$/ );
-
-        if ( $running >= $self->queue_limit ) {
-            my $status = $self->_jobs_status();
-            if ( $status eq 'add' ) {
-                $running--;
-                redo;
-            }
-            elsif ( $status eq 'wait' ) {
-                sleep(10);
-                redo;
-            }
-        }
-        else {
-            my $launch = sprintf(
-                "%s %s &>> launch.index",
-                $self->{SBATCH}->{$self->{cluster}}, $launch 
-            );
-            system $launch; 
-            $running++;
-            next;
-        }
-    }
-}
-
-## ----------------------------------------------------- ##
-
-sub _jobs_status {
-    my $self   = shift;
-
-    my $squeue = sprintf(
-        "%s -A %s -u %s -h | wc -l",
-        $self->{SQUEUE}->{ $self->{cluster} },
-        $self->account, $self->user
-    );
-    my $state = `$squeue`;
-
-    if ( $state >= $self->queue_limit ) {
-        return 'wait';
-    }
-    else {
-        return 'add';
-    }
-}
-
-## ----------------------------------------------------- ##
-
-sub _wait_all_jobs {
-    my $self = shift;
-
-    $self->INFO("All jobs launched. Processing.");
 
     my $process;
     do {
         sleep(60);
-        $self->_relaunch();
+        $self->INFO("Checking if jobs need to be relaunched.");
+        $self->_guest_hanging_check;
+        $self->_guest_relaunch;
         sleep(60);
-        $process = $self->_process_check();
+        $self->INFO("Checking current processing.");
+        $process = $self->_guest_process_check();
     } while ($process);
 }
 
 ## ----------------------------------------------------- ##
 
-sub _relaunch {
+sub _guest_relaunch {
     my $self = shift;
 
     my @error = `grep error *out`;
@@ -292,7 +195,6 @@ sub _relaunch {
 
     ## get launched then remove.
     my @indexs = `cat launch.index`;
-    chomp @indexs;
 
     my $relaunch = 0;
     foreach my $line (@indexs) {
@@ -301,10 +203,10 @@ sub _relaunch {
 
         ## find in lookup and dont re-relaunch.
         if ( $relaunch{ $parts[-1] } ) {
-            my $orig_file = $parts[0] . '.launched';
+            my $file = $parts[0] . '.launched';
 
             my @dropped_cmds =
-              `sed -n '/^## Commands/,/^## End of Commands/p' $orig_file`;
+              `sed -n '/^## Commands/,/^## End of Commands/p' $file`;
 
             my @cleaned_dropped;
             foreach my $cmd (@dropped_cmds) {
@@ -314,8 +216,9 @@ sub _relaunch {
                 push @cleaned_dropped, $cmd;
             }
 
-            open( my $CF, '>>', $self->command_file );
-            $self->INFO("Writing Preempted commands to relaunch.");
+            open( my $CF, '>>', $self->command_file ) 
+                or $self->ERROR("Could not open $self->command_file.");
+
             map { say $CF $_ } @cleaned_dropped;
             $relaunch++;
         }
@@ -328,7 +231,7 @@ sub _relaunch {
 
 ## ----------------------------------------------------- ##
 
-sub _process_check {
+sub _guest_process_check {
     my $self = shift;
 
     my @processing;
@@ -354,14 +257,16 @@ sub _process_check {
         $running{$active}++;
     }
 
-    ## check what was launched.
-    open( my $LAUNCH, '<', 'launch.index' )
-      or die "[ERROR] Can't find needed launch.index file.";
+    my @launched = `cat launch.index`;
+    chomp @launched;
+    if (! @launched) {
+        $self->ERROR("Can't find needed launch.index file.");
+    }
 
     my $current = 0;
-    foreach my $launched (<$LAUNCH>) {
-        chomp $launched;
-        my @result = split /\s+/, $launched;
+    foreach my $launch (@launched) {
+        chomp $launch;
+        my @result = split /\s+/, $launch;
 
         if ( $running{ $result[-1] } ) {
             $current++;
@@ -372,9 +277,21 @@ sub _process_check {
 
 ## ----------------------------------------------------- ##
 
-sub state_check {
+sub _guest_hanging_check {
     my $self = shift;
 
+    my @launched = `cat launch.index`;
+    $self->ERROR("launch.index file not found.") if ( !@launched );
+
+    ## make lookup.
+    my %launch_index;
+    foreach my $current (@launched) {
+        chomp $current;
+        my @launch_info = split /\s+/, $current;
+        $launch_index{ $launch_info[-1] }++;
+    }
+
+    my %relaunch;
     foreach my $cluster ( keys %{ $self->{SQUEUE} } ) {
         chomp $cluster;
 
@@ -384,33 +301,36 @@ sub state_check {
             $self->user, "\"%A %r\""
         );
         my @result = `$reason`;
-
         next if ( !@result );
-        my @notAval = grep { $_ =~ /ReqNodeNotAvail/ } @result;
-        next if ( !@notAval );
 
-        foreach my $stopped (@notAval) {
-            chomp $stopped;
-            my ( $id, $reason ) = split /\s+/, $stopped;
+        foreach my $responce (@result) {
+            chomp $responce;
+            my ( $id, $reason ) = split /\s+/, $responce;
 
-            $self->WARN(
-                "Job $id on $cluster being killed and relaunched due to: $reason"
-            );
-            my $cxl = sprintf( "%s %s", $self->{SCANCEL}->{$cluster}, $id );
-            system($cxl);
+            ## keep current and focused.
+            next unless ( $launch_index{$id} );
+            next unless ( $reason =~ /(ReqNodeNotAvail|Resources|Priority)/ );
+
+            $self->{hang_count}{$id} += 1;
+            if ( $self->{hang_count}{$id} > 10 ) {
+                $self->WARN("Job being killed and relaunched due to hangtime.");
+                my $cxl = sprintf( "%s %s", $self->{SCANCEL}->{$cluster}, $id );
+                system($cxl);
+            }
         }
     }
 }
 
 ## ----------------------------------------------------- ##
 
-sub _error_check {
+sub _guest_error_check {
     my $self = shift;
 
     my @error = `grep error *.out`;
     if ( !@error ) { return }
 
     ## if errors still found, keep trying to relaunch
+    $self->WARN("Canceled jobs found, relaunching them...");
     $self->_wait_all_jobs();
 }
 
