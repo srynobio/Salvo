@@ -195,12 +195,6 @@ sub fire {
     else {
         $self->ERROR("Misfire!! $self->mode not an mode option.");
     }
-
-    ## update command file back to original
-#    my $file   = $self->command_file;
-#    my $rename = "$file.ORIGINAL";
-#    rename $rename, $file if $rename;
-
     unlink 'launch.index';
     say "Salvo Done!";
     exit(0);
@@ -233,7 +227,8 @@ sub ican_access {
     my $useable_nodes = $self->_ican_find;
     my $user          = $self->user;
 
-    my $access = `sacctmgr list assoc format=account%30,cluster%30,qos%30 user=$user`;
+    my $access =
+      `sacctmgr list assoc format=account%30,cluster%30,qos%30 user=$user`;
     my @node_access = split /\n/, $access;
     my @node_data = splice( @node_access, 2, $#node_access );
 
@@ -278,13 +273,12 @@ sub ican_access {
             delete $useable_nodes->{$found};
             next;
         }
-        ## add number of nodes as [-2] and
-        ## account info as [-1]
-        push @{ $useable_nodes->{$found} },
-          scalar @{ $useable_nodes->{$found} };
 
-        push @{ $useable_nodes->{$found} },
-          { account_info => $aval{$found}->[0] };
+        ## add number of nodes and account info
+        my $number_of_nodes = scalar keys %{ $useable_nodes->{$found} };
+        $useable_nodes->{$found}{nodes_count} = $number_of_nodes;
+
+        $useable_nodes->{$found}{account_info} = $aval{$found}->[0];
     }
     return $useable_nodes;
 }
@@ -313,12 +307,20 @@ sub _ican_find {
 
             ## make node master table.
             ## change memory into GB.
-            push @{ $found_nodes{ $node_details[-1] } },
-              {
+
+            $found_nodes{ $node_details[-1] }{ $node_details[0] } = {
                 NODE   => $node_details[0],
                 CPUS   => $node_details[1],
                 MEMORY => int( $node_details[2] / 1000 ),
-              };
+            };
+
+            #            push @{ $found_nodes{ $node_details[-1] } },
+            #              {
+            #                NODE   => $node_details[0],
+            #                CPUS   => $node_details[1],
+            #                MEMORY => int( $node_details[2] / 1000 ),
+            #              };
+
         }
     }
     return \%found_nodes;
@@ -333,7 +335,7 @@ sub get_cmds {
     open( my $IN, '<', $file );
 
     ## create tmp file for relaunched jobs
-    if ( ! -e "$file.tmp" ) {
+    if ( !-e "$file.tmp" ) {
         my $new_file = "$file.tmp";
         $self->{command_file} = $new_file;
     }

@@ -5,7 +5,6 @@ use feature 'say';
 use Moo::Role;
 use IO::Dir;
 
-
 ## ----------------------------------------------------- ##
 ##                    Attributes                         ##
 ## ----------------------------------------------------- ##
@@ -15,108 +14,135 @@ use IO::Dir;
 ## ----------------------------------------------------- ##
 
 sub guest {
-    my $self = shift;
-    my $cmds = $self->get_cmds;
-
-  RECHECK:
+    my $self   = shift;
+    my $cmds   = $self->get_cmds;
     my $access = $self->ican_access;
 
-    my %claimed;
-    while ( my ( $node_name, $value ) = each %{$access} ) {
-        last unless ( @{$cmds} );
+    while ( my ( $node_name, $node_data ) = each %{$access} ) {
+        my $beacon_count = $node_data->{nodes_count};
 
-        my $info_hash       = pop @{$value};
-        my $number_of_nodes = pop @{$value};
-
-        next unless ( $number_of_nodes >= 1 );
-
-        ## check for excluded cluster.
-        if ( $info_hash->{account_info}->{CLUSTER} eq $self->exclude_cluster ) {
-            next;
+        for ( my $i = 0 ; $i < $beacon_count ; $i++ ) {
+            $self->beacon_writer($node_data);
         }
-
-        if ( $self->nodes_per_sbatch > 1 ) {
-
-            ## check if there are enough nodes if asked
-            if ( $number_of_nodes < $self->nodes_per_sbatch ) {
-                $self->INFO(
-                    "Cluster $info_hash->{account_info}->{CLUSTER} does not have enough nodes."
-                );
-                next;
-            }
-
-            $self->INFO("multi-node job to $info_hash->{account_info}->{CLUSTER} cluster.");
-            $self->INFO("On $info_hash->{account_info}->{ACCOUNT} account.");
-            $self->INFO("On $info_hash->{account_info}->{PARTITION} partition.");
-            $self->INFO("----------------------------------------------------");
-
-            ## reduce number of nodes aval
-            $number_of_nodes -= $self->nodes_per_sbatch;
-
-            my $jobsper = $self->jobs_per_sbatch;
-            my @stack;
-            for ( 1 .. $jobsper ) {
-                my $single_cmd = shift @{$cmds};
-                push @stack, $single_cmd;
-            }
-            $self->multi_node_guest_writer( \@stack, $info_hash );
-        }
-
-        else {
-            ## step message
-            $self->INFO("Checking $info_hash->{account_info}->{CLUSTER} cluster for nodes.");
-            $self->INFO("----------------------------------------------------");
-
-            foreach my $node ( @{$value} ) {
-                last unless ( @{$cmds} );
-
-                ## check if node already claimed or add to store.
-                next if ( $self->{node_track}{$node->{NODE}} );
-                $self->{node_track}{$node->{NODE}}++;
-
-                ## check for hyperthread option.
-                if ( $self->hyperthread ) {
-                    $node->{CPUS} = ( $node->{CPUS} * 2 );
-                }
-
-                my $jobsper;
-                if ( $self->jobs_per_sbatch > $node->{CPUS} ) {
-                    $jobsper = $node->{CPUS};
-                }
-                else {
-                    $jobsper = $self->jobs_per_sbatch;
-                }
-
-                my @stack;
-                for ( 1 .. $jobsper ) {
-                    my $single_cmd = shift @{$cmds};
-                    push @stack, $single_cmd;
-                }
-                $self->guest_writer( $node, \@stack, $info_hash );
-            }
-        }
-
-        ## launch guest jobs
-        $self->guest_launcher($info_hash);
     }
 
-    while ( @{$cmds} ) {
-        my $num_of_jobs = scalar @{$cmds};
-        $self->INFO("~~ All available nodes used,  but commands remain. ~~");
-        $self->INFO("~~ Number of commands left: $num_of_jobs. ~~");
-        $self->INFO("~~ Waiting/Checking for more nodes.... ~~");
-        $self->INFO("----------------------------------------------------");
-
-        ## quick check for hanging jobs.
-        sleep(60);
-        $self->INFO("Checking for hanging jobs.");
-        $self->_guest_hanging_check;
-        goto RECHECK;
-    }
-    $self->INFO("Reviewing state of jobs...");
-    $self->INFO("Relaunching if needed...");
-    $self->_guest_wait_all_jobs();
+    my $ooo;
 }
+
+## ----------------------------------------------------- ##
+#
+#sub create_beacon {
+#    my ( $self, $node_info ) = @_;
+#    my $beacon_count = $node_info->{nodes_count};
+#
+#    for ( my $i = 0 ; $i < $beacon_count ; $i++ ) {
+#        $self->beacon_writer($node_info);
+#    }
+#}
+
+## ----------------------------------------------------- ##
+          
+    ##my $jj;
+#  RECHECK:
+#    my $access = $self->ican_access;
+#
+#    my %claimed;
+#    while ( my ( $node_name, $value ) = each %{$access} ) {
+#        last unless ( @{$cmds} );
+#
+#        my $info_hash       = pop @{$value};
+#        my $number_of_nodes = pop @{$value};
+#
+#        next unless ( $number_of_nodes >= 1 );
+#
+#        ## check for excluded cluster.
+#        if ( $info_hash->{account_info}->{CLUSTER} eq $self->exclude_cluster ) {
+#            next;
+#        }
+#
+#        if ( $self->nodes_per_sbatch > 1 ) {
+#
+#            ## check if there are enough nodes if asked
+#            if ( $number_of_nodes < $self->nodes_per_sbatch ) {
+#                $self->INFO(
+#                    "Cluster $info_hash->{account_info}->{CLUSTER} does not have enough nodes."
+#                );
+#                next;
+#            }
+#
+#            $self->INFO("multi-node job to $info_hash->{account_info}->{CLUSTER} cluster.");
+#            $self->INFO("On $info_hash->{account_info}->{ACCOUNT} account.");
+#            $self->INFO("On $info_hash->{account_info}->{PARTITION} partition.");
+#            $self->INFO("----------------------------------------------------");
+#
+#            ## reduce number of nodes aval
+#            $number_of_nodes -= $self->nodes_per_sbatch;
+#
+#            my $jobsper = $self->jobs_per_sbatch;
+#            my @stack;
+#            for ( 1 .. $jobsper ) {
+#                my $single_cmd = shift @{$cmds};
+#                push @stack, $single_cmd;
+#            }
+#            $self->multi_node_guest_writer( \@stack, $info_hash );
+#        }
+#
+#        else {
+#            ## step message
+#            $self->INFO("Checking $info_hash->{account_info}->{CLUSTER} cluster for nodes.");
+#            $self->INFO("----------------------------------------------------");
+#
+#            foreach my $node ( @{$value} ) {
+#                last unless ( @{$cmds} );
+#
+#                ## check if node already claimed or add to store.
+#                next if ( $self->{node_track}{$node->{NODE}} );
+#                $self->{node_track}{$node->{NODE}}++;
+#
+#                ## check for hyperthread option.
+#                if ( $self->hyperthread ) {
+#                    $node->{CPUS} = ( $node->{CPUS} * 2 );
+#                }
+#
+#                my $jobsper;
+#                if ( $self->jobs_per_sbatch > $node->{CPUS} ) {
+#                    $jobsper = $node->{CPUS};
+#                }
+#                else {
+#                    $jobsper = $self->jobs_per_sbatch;
+#                }
+#
+#                my @stack;
+#                for ( 1 .. $jobsper ) {
+#                    my $single_cmd = shift @{$cmds};
+#                    push @stack, $single_cmd;
+#                }
+#                $self->guest_writer( $node, \@stack, $info_hash );
+#            }
+#        }
+#
+#        ## launch guest jobs
+#        $self->guest_launcher($info_hash);
+#    }
+#
+#    while ( @{$cmds} ) {
+#        my $num_of_jobs = scalar @{$cmds};
+#        $self->INFO("~~ All available nodes used,  but commands remain. ~~");
+#        $self->INFO("~~ Number of commands left: $num_of_jobs. ~~");
+#        $self->INFO("~~ Waiting/Checking for more nodes.... ~~");
+#        $self->INFO("----------------------------------------------------");
+#
+#        ## quick check for hanging jobs.
+#        sleep(60);
+#        $self->INFO("Checking for hanging jobs.");
+#        $self->_guest_hanging_check;
+#        goto RECHECK;
+#    }
+#    $self->INFO("Reviewing state of jobs...");
+#    $self->INFO("Relaunching if needed...");
+#    $self->_guest_wait_all_jobs();
+
+#}
 
 ## ----------------------------------------------------- ##
 

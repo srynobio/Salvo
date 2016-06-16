@@ -283,14 +283,14 @@ sub _relaunch {
     }
     if ( !@error ) { return }
 
-    my %relaunch;
+#    my %relaunch;
+    my @relaunch;
     my @error_files;
     foreach my $cxl (@error) {
         chomp $cxl;
 
         my @ids = split /\s/, $cxl;
         my ( $error_file, undef ) = split /:/, $ids[0];
-        ##my ( $sbatch, undef ) = split /:/, $ids[0];
 
         ## add to error array before changes
         push @error_files, $error_file;
@@ -305,22 +305,33 @@ sub _relaunch {
 
         ## record launch id with sbatch script
         next unless ( $cxl =~ /PREEMPTION|CANCELLED/ );
-        $relaunch{ $ids[4] } = $sbatch;
+        push @relaunch, $sbatch;
+#        $relaunch{ $ids[4] } = $sbatch;
     }
 
-    my @indexs = `cat launch.index`;
-    chomp @indexs;
-
-    foreach my $line (@indexs) {
-        chomp $line;
-        my @parts = split /\s/, $line;
-
-        ## find in lookup and dont re-relaunch.
-        if ( $relaunch{ $parts[-1] } ) {
-            system "$ENV{SBATCH}->{$salvo_opts{cluster}} $relaunch{$parts[-1]} >> launch.index";
-            say "[WARN] Relaunching job $relaunch{$parts[-1]}";
-        }
+    foreach my $rerun (@relaunch) {
+        chomp $rerun;
+        system "$ENV{SBATCH}->{$salvo_opts{cluster}} $rerun >> launch.index";
+        say "[WARN] Relaunching job $rerun";
     }
+
+
+
+
+#    my @indexs = `cat launch.index`;
+#    chomp @indexs;
+#
+#    foreach my $line (@indexs) {
+#        chomp $line;
+#        my @parts = split /\s/, $line;
+#
+#        ## find in lookup and dont re-relaunch.
+#        if ( $relaunch{ $parts[-1] } ) {
+#            system "$ENV{SBATCH}->{$salvo_opts{cluster}} $relaunch{$parts[-1]} >> launch.index";
+#            say "[WARN] Relaunching job $relaunch{$parts[-1]}";
+#        }
+#    }
+
     ## remove error files.
     unlink @error_files;
 }
@@ -362,6 +373,11 @@ sub _process_check {
 sub _error_check {
     my @error = `grep error *.out`;
     if ( !@error ) { return }
+
+    if (@error) {
+        say "[WARN] Errors found relaunching jobs.";
+        _wait_all_jobs();
+    }
 
     say "[WARN] errors were found in salvo output files", 
     map { say "[WARN] Output File: $_" } @error;

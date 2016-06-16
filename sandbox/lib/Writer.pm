@@ -181,6 +181,45 @@ EOM
 
 ## ----------------------------------------------------- ##
 
+sub beacon_writer {
+    my ( $self, $node_info ) = @_;
+
+    my $jobname   = 'salvo-' . $self->random_id;
+    my $slurm_out = $jobname . '.out';
+    my $outfile   = $jobname . '.sbatch';
+
+    # collect from info hash & object
+    my $account   = $node_info->{account_info}->{ACCOUNT};
+    my $partition = $node_info->{account_info}->{PARTITION};
+    $account   =~ s/_/-/g;
+    $partition =~ s/_/-/g;
+    my $work_dir = $self->work_dir;
+    my $runtime  = $self->runtime;
+
+    my $sbatch = <<"EOM";
+#!/bin/bash
+#SBATCH -t $runtime
+#SBATCH -N 1
+#SBATCH -A $account
+#SBATCH -p $partition
+#SBATCH -J $jobname
+#SBATCH -o $slurm_out
+
+# Working directory
+cd $work_dir
+
+./beacon-c.pl
+
+wait
+
+EOM
+    open( my $OUT, '>', $outfile );
+    say $OUT $sbatch;
+    close $OUT;
+}
+
+## ----------------------------------------------------- ##
+
 sub random_id {
     my $self = shift;
 

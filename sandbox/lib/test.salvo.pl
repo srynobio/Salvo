@@ -15,14 +15,14 @@ my $test = Salvo->new(
         account         => 'owner-guest',
         partition       => 'kingspeak-guest',
         cluster         => 'ash',
-        jobs_per_sbatch => '5',
+        jobs_per_sbatch => '1',
 #        concurrent      => '1',
         #additional_steps => 'cd ~,lscpu',
         ## figure out how to only exclude on right cluster
         #exclude_nodes    => 'kingspeak:kp[001-095,168-195,200-227]',
-        #exclude_cluster    => 'lonepeak',
-        runtime          => '2:00:00',
-        nodes_per_sbatch => '10',
+        exclude_cluster    => 'lonepeak',
+        runtime          => '5:00:00',
+        nodes_per_sbatch => '1',
         queue_limit      => '10',
         hyperthread      => '1',
     }
