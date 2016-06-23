@@ -3,13 +3,13 @@ use strict;
 use warnings;
 use feature 'say';
 use Moo;
-use Cwd;
 use File::Copy;
+use IPC::Cmd qw[can_run run run_forked];
 
 with qw {
   Reporter
   Writer
-  Guest
+  Idle
   Dedicated
 };
 
@@ -21,7 +21,7 @@ has user => (
     is      => 'rw',
     default => sub {
         my $self = shift;
-        return $self->{user};
+        return $self->{user} || $ENV{USER};
     },
 );
 
@@ -93,7 +93,7 @@ has work_dir => (
     is      => 'ro',
     default => sub {
         my $self = shift;
-        return $self->{work_dir} || getcwd;
+        return $self->{work_dir} || $ENV{PWD};
     },
 );
 
@@ -117,7 +117,7 @@ has queue_limit => (
     is      => 'ro',
     default => sub {
         my $self = shift;
-        return $self->{queue_limit} || 1;
+        return $self->{queue_limit} || 10;
     },
 );
 
@@ -170,7 +170,7 @@ sub BUILD {
     };
 
     unless ( $args->{user} && $args->{command_file} && $args->{mode} ) {
-        say "[WARN] required options not given,";
+        say "[ERROR] required options not given,";
         exit(1);
     }
 
@@ -189,8 +189,8 @@ sub fire {
     if ( $self->mode eq 'dedicated' ) {
         $self->dedicated;
     }
-    elsif ( $self->mode eq 'guest' ) {
-        $self->guest;
+    elsif ( $self->mode eq 'idle' ) {
+        $self->idle;
     }
     else {
         $self->ERROR("Misfire!! $self->mode not an mode option.");
@@ -198,6 +198,29 @@ sub fire {
     unlink 'launch.index';
     say "Salvo Done!";
     exit(0);
+}
+
+## ----------------------------------------------------- ##
+
+sub get_cmds {
+    my $self = shift;
+
+    my $file = $self->command_file;
+    open( my $IN, '<', $file );
+
+    my @cmd_stack;
+    foreach my $cmd (<$IN>) {
+        chomp $cmd;
+
+        if ( $self->jobs_per_sbatch > 1 and $self->concurrent ) {
+            push @cmd_stack, "$cmd &";
+        }
+        else {
+            push @cmd_stack, $cmd;
+        }
+    }
+    close $IN;
+    return \@cmd_stack;
 }
 
 ## ----------------------------------------------------- ##
@@ -211,12 +234,37 @@ sub additional_steps {
     if ( $self->{additional_steps} ) {
         if ( $self->{additional_steps} =~ /\,/ ) {
             @steps = split /\,/, $self->{additional_steps};
+            map { $_ =~ s/^\s+//g } @steps;
         }
         else {
+            $self->INFO("Additional step (not comma separated) found.");
             push @steps, $self->{additional_steps};
         }
     }
     return \@steps;
+}
+
+## ----------------------------------------------------- ##
+
+sub node_clean_up {
+    my $self = shift;
+
+    open( my $INDX, '<', 'launch.index' )
+      or die $self->WARN("Could not open launch.index file for node clean up.");
+
+    my @ids;
+    foreach my $launch (<$INDX>) {
+        chomp $launch;
+        my @info = split /\s+/, $launch;
+        push @ids, $info[-1];
+    }
+
+    foreach my $node ( keys %{ $self->{SCANCEL} } ) {
+        foreach my $job (@ids) {
+            my $cancel = sprintf( "%s %s", $self->{SCANCEL}->{$node}, $job );
+            system $cancel;
+        }
+    }
 }
 
 ## ----------------------------------------------------- ##
@@ -307,52 +355,14 @@ sub _ican_find {
 
             ## make node master table.
             ## change memory into GB.
-
             $found_nodes{ $node_details[-1] }{ $node_details[0] } = {
                 NODE   => $node_details[0],
                 CPUS   => $node_details[1],
                 MEMORY => int( $node_details[2] / 1000 ),
             };
-
-            #            push @{ $found_nodes{ $node_details[-1] } },
-            #              {
-            #                NODE   => $node_details[0],
-            #                CPUS   => $node_details[1],
-            #                MEMORY => int( $node_details[2] / 1000 ),
-            #              };
-
         }
     }
     return \%found_nodes;
-}
-
-## ----------------------------------------------------- ##
-
-sub get_cmds {
-    my $self = shift;
-
-    my $file = $self->command_file;
-    open( my $IN, '<', $file );
-
-    ## create tmp file for relaunched jobs
-    if ( !-e "$file.tmp" ) {
-        my $new_file = "$file.tmp";
-        $self->{command_file} = $new_file;
-    }
-
-    my @cmd_stack;
-    foreach my $cmd (<$IN>) {
-        chomp $cmd;
-
-        if ( $self->jobs_per_sbatch > 1 and $self->concurrent ) {
-            push @cmd_stack, "$cmd &";
-        }
-        else {
-            push @cmd_stack, $cmd;
-        }
-    }
-    close $IN;
-    return \@cmd_stack;
 }
 
 ## ----------------------------------------------------- ##

@@ -1,166 +1,214 @@
-package Guest;
+package Idle;
 use strict;
 use warnings;
 use feature 'say';
 use Moo::Role;
-use IO::Dir;
+use IO::Socket::INET;
+use Parallel::ForkManager;
 
 ## ----------------------------------------------------- ##
 ##                    Attributes                         ##
 ## ----------------------------------------------------- ##
 
+has socket => (
+    is      => 'ro',
+    default => sub {
+        my $socket = IO::Socket::INET->new(
+            LocalHost => '10.242.128.49',
+            LocalPort => '45652',
+            Proto     => 'tcp',
+            Type      => SOCK_STREAM,
+            Listen    => SOMAXCONN,
+            Reuse     => 1
+        );
+        return $socket;
+    },
+);
+
+has child => (
+    is      => 'ro',
+    default => sub {
+        my $self = shift;
+        my $pm   = Parallel::ForkManager->new(1);
+        return $pm;
+    },
+);
+
 ## ----------------------------------------------------- ##
 ##                     Methods                           ##
 ## ----------------------------------------------------- ##
 
-sub guest {
-    my $self   = shift;
-    my $cmds   = $self->get_cmds;
-    my $access = $self->ican_access;
+sub idle {
+    my $self = shift;
+    $self->create_cmd_files;
 
-    while ( my ( $node_name, $node_data ) = each %{$access} ) {
-        my $beacon_count = $node_data->{nodes_count};
+    my $subprocess = 0;
+    my $pm         = $self->child;
+    while ( $subprocess < 1 ) {
+        $subprocess++;
+        $pm->start and next;
+        $self->start_beacon;
+        $pm->finish;
 
-        for ( my $i = 0 ; $i < $beacon_count ; $i++ ) {
-            $self->beacon_writer($node_data);
-        }
+        my $child = $pm->running_procs;
+        kill 'KILL', $child;
     }
 
-    my $ooo;
+  MORENODES:
+    my $access = $self->ican_access;
+    while ( my ( $node_name, $node_data ) = each %{$access} ) {
+        ## check if excluded
+        next if ( $node_name eq $self->exclude_cluster );
+
+        foreach my $detail ( keys %{$node_data} ) {
+            next if ( $detail eq 'account_info' );
+            next if ( $detail eq 'nodes_count' );
+            $self->beacon_writer( $node_data->{$detail}, $node_data );
+        }
+        $self->_idle_launcher($node_data);
+    }
+
+    if ( $self->get_cmd_files ) {
+        $self->INFO("Looking for more nodes.");
+        sleep 600;
+        goto MORENODES;
+    }
+    
+    ## wait for processing file before clean up.
+    while ( $self->get_processing_files ) {
+        $self->INFO("Waiting for processing jobs.");
+        sleep 300;
+        redo;
+    }
+    $pm->wait_all_children;
+    $self->node_clean_up;
 }
 
 ## ----------------------------------------------------- ##
-#
-#sub create_beacon {
-#    my ( $self, $node_info ) = @_;
-#    my $beacon_count = $node_info->{nodes_count};
-#
-#    for ( my $i = 0 ; $i < $beacon_count ; $i++ ) {
-#        $self->beacon_writer($node_info);
-#    }
-#}
 
-## ----------------------------------------------------- ##
-          
-    ##my $jj;
-#  RECHECK:
-#    my $access = $self->ican_access;
-#
-#    my %claimed;
-#    while ( my ( $node_name, $value ) = each %{$access} ) {
-#        last unless ( @{$cmds} );
-#
-#        my $info_hash       = pop @{$value};
-#        my $number_of_nodes = pop @{$value};
-#
-#        next unless ( $number_of_nodes >= 1 );
-#
-#        ## check for excluded cluster.
-#        if ( $info_hash->{account_info}->{CLUSTER} eq $self->exclude_cluster ) {
-#            next;
-#        }
-#
-#        if ( $self->nodes_per_sbatch > 1 ) {
-#
-#            ## check if there are enough nodes if asked
-#            if ( $number_of_nodes < $self->nodes_per_sbatch ) {
-#                $self->INFO(
-#                    "Cluster $info_hash->{account_info}->{CLUSTER} does not have enough nodes."
-#                );
-#                next;
-#            }
-#
-#            $self->INFO("multi-node job to $info_hash->{account_info}->{CLUSTER} cluster.");
-#            $self->INFO("On $info_hash->{account_info}->{ACCOUNT} account.");
-#            $self->INFO("On $info_hash->{account_info}->{PARTITION} partition.");
-#            $self->INFO("----------------------------------------------------");
-#
-#            ## reduce number of nodes aval
-#            $number_of_nodes -= $self->nodes_per_sbatch;
-#
-#            my $jobsper = $self->jobs_per_sbatch;
-#            my @stack;
-#            for ( 1 .. $jobsper ) {
-#                my $single_cmd = shift @{$cmds};
-#                push @stack, $single_cmd;
-#            }
-#            $self->multi_node_guest_writer( \@stack, $info_hash );
-#        }
-#
-#        else {
-#            ## step message
-#            $self->INFO("Checking $info_hash->{account_info}->{CLUSTER} cluster for nodes.");
-#            $self->INFO("----------------------------------------------------");
-#
-#            foreach my $node ( @{$value} ) {
-#                last unless ( @{$cmds} );
-#
-#                ## check if node already claimed or add to store.
-#                next if ( $self->{node_track}{$node->{NODE}} );
-#                $self->{node_track}{$node->{NODE}}++;
-#
-#                ## check for hyperthread option.
-#                if ( $self->hyperthread ) {
-#                    $node->{CPUS} = ( $node->{CPUS} * 2 );
-#                }
-#
-#                my $jobsper;
-#                if ( $self->jobs_per_sbatch > $node->{CPUS} ) {
-#                    $jobsper = $node->{CPUS};
-#                }
-#                else {
-#                    $jobsper = $self->jobs_per_sbatch;
-#                }
-#
-#                my @stack;
-#                for ( 1 .. $jobsper ) {
-#                    my $single_cmd = shift @{$cmds};
-#                    push @stack, $single_cmd;
-#                }
-#                $self->guest_writer( $node, \@stack, $info_hash );
-#            }
-#        }
-#
-#        ## launch guest jobs
-#        $self->guest_launcher($info_hash);
-#    }
-#
-#    while ( @{$cmds} ) {
-#        my $num_of_jobs = scalar @{$cmds};
-#        $self->INFO("~~ All available nodes used,  but commands remain. ~~");
-#        $self->INFO("~~ Number of commands left: $num_of_jobs. ~~");
-#        $self->INFO("~~ Waiting/Checking for more nodes.... ~~");
-#        $self->INFO("----------------------------------------------------");
-#
-#        ## quick check for hanging jobs.
-#        sleep(60);
-#        $self->INFO("Checking for hanging jobs.");
-#        $self->_guest_hanging_check;
-#        goto RECHECK;
-#    }
-#    $self->INFO("Reviewing state of jobs...");
-#    $self->INFO("Relaunching if needed...");
-#    $self->_guest_wait_all_jobs();
+sub create_cmd_files {
+    my $self = shift;
+    my $cmds = $self->get_cmds;
 
-#}
+    # split base on jps, then create sbatch scripts.
+    my @cmdstack;
+    push @cmdstack, [ splice @{$cmds}, 0, $self->jobs_per_sbatch ]
+      while @{$cmds};
+
+    my $cmds_count = 0;
+    foreach my $stack (@cmdstack) {
+        $cmds_count++;
+        my $w_file = "salvo.work.$cmds_count.cmds";
+
+        open( my $FH, '>', $w_file );
+        map { say $FH $_ } @{$stack};
+        close $FH;
+    }
+}
 
 ## ----------------------------------------------------- ##
 
-sub guest_launcher {
-    my ( $self, $info_hash ) = @_;
+sub start_beacon {
+    my ( $self, $count ) = @_;
+
+    # flush after every write
+    $| = 1;
+
+    my $socket = $self->socket;
+    $self->INFO("Server beacon launching.");
+
+    do {
+        my $client = $socket->accept;
+
+        # get information about a newly connected client
+        my $client_address = $client->peerhost();
+        my $client_port    = $client->peerport();
+        print "connection from $client_address:$client_port\n";
+
+        # Get data on who client is.
+        my $node = "";
+        $client->recv( $node, 1024 );
+        say "Received beacon from node: $node";
+
+        my $cpu = $self->node_cpu_details($node);
+
+        my @cmd_files = $self->get_cmd_files;
+        last if ( !@cmd_files );
+
+        ## send cmds to node.
+        my $work = shift @cmd_files;
+        say "sending file $work to $node.";
+        
+        my $message = "$work:$cpu";
+        rename $work, "$work.processing";
+        $client->send($message);
+
+    } while ( $self->get_cmd_files );
+    $socket->close;
+}
+
+## ----------------------------------------------------- ##
+
+sub node_cpu_details {
+    my ( $self, $node ) = @_;
+
+    my $cpu;
+    foreach my $clst ( keys %{ $self->{SINFO} } ) {
+        chomp $clst;
+        my $sinfo_cmd = sprintf(
+            "%s -N -l -h --node %s",
+            $self->{SINFO}->{$clst}, $node
+        );
+        my @n_data = `$sinfo_cmd`; 
+        next if (! @n_data);
+
+        chomp @n_data;
+        my $top_line = $n_data[0];
+        my @info = split /\s+/, $top_line;
+
+        $cpu = $info[4];
+        last if $cpu;
+    }
+    return $cpu;
+}
+
+## ----------------------------------------------------- ##
+
+sub get_cmd_files {
+    my $self = shift;
+
+    my @cmd_files = glob "salvo.work.*.cmds";
+    (@cmd_files) ? ( return @cmd_files ) : (return 0);
+}
+
+## ----------------------------------------------------- ##
+
+sub get_processing_files {
+    my $self = shift;
+
+    my @process_files = glob "salvo.work.*.processs.processing";
+    (@process_files) ? ( return @process_files ) : (return 0);
+}
+
+## ----------------------------------------------------- ##
+
+sub _idle_launcher {
+    my ( $self, $node_data ) = @_;
 
     ## create output file
     open( my $OUT, '>>', 'launch.index' );
 
-    my $DIR     = IO::Dir->new(".");
-    my $running = 0;
-    foreach my $launch ( $DIR->read ) {
+    my @sbatchs = glob "*sbatch";
+    if ( !@sbatchs ) {
+        say $self->ERROR("No sbatch scripts found to launch.");
+    }
+
+    foreach my $launch (@sbatchs) {
         chomp $launch;
         next unless ( $launch =~ /sbatch$/ );
 
-        print $OUT "$launch\t";
         my $batch = sprintf( "%s %s >> launch.index",
-            $self->{SBATCH}->{ $info_hash->{account_info}->{CLUSTER} },
+            $self->{SBATCH}->{ $node_data->{account_info}->{CLUSTER} },
             $launch );
         system $batch;
 
@@ -171,24 +219,24 @@ sub guest_launcher {
 
 ## ----------------------------------------------------- ##
 
-sub _guest_wait_all_jobs {
+sub _idle_wait_all_jobs {
     my $self = shift;
 
     my $process;
     do {
         sleep(60);
         $self->INFO("Checking if jobs need to be relaunched.");
-        $self->_guest_hanging_check;
-        $self->_guest_relaunch;
+        $self->_idle_hanging_check;
+        $self->_idle_relaunch;
         sleep(60);
         $self->INFO("Checking current processing.");
-        $process = $self->_guest_process_check();
+        $process = $self->_idle_process_check();
     } while ($process);
 }
 
 ## ----------------------------------------------------- ##
 
-sub _guest_relaunch {
+sub _idle_relaunch {
     my $self = shift;
 
     my @error = `grep error *out`;
@@ -252,12 +300,12 @@ sub _guest_relaunch {
 
     ## remove error files.
     unlink @error_files;
-    $self->guest if $relaunch;
+    $self->idle if $relaunch;
 }
 
 ## ----------------------------------------------------- ##
 
-sub _guest_process_check {
+sub _idle_process_check {
     my $self = shift;
 
     my @processing;
@@ -303,7 +351,7 @@ sub _guest_process_check {
 
 ## ----------------------------------------------------- ##
 
-sub _guest_hanging_check {
+sub _idle_hanging_check {
     my $self = shift;
 
     my @launched = `cat launch.index`;
@@ -349,7 +397,7 @@ sub _guest_hanging_check {
 
 ## ----------------------------------------------------- ##
 
-sub _guest_error_check {
+sub _idle_error_check {
     my $self = shift;
 
     my @error = `grep error *.out`;

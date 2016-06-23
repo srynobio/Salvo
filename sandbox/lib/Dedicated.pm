@@ -4,7 +4,6 @@ use warnings;
 use feature 'say';
 use Moo::Role;
 
-
 ## ----------------------------------------------------- ##
 ##                    Attributes                         ##
 ## ----------------------------------------------------- ##
@@ -16,7 +15,7 @@ use Moo::Role;
 sub dedicated {
     my $self = shift;
 
-    my $cmds = $self->cmds;
+    my $cmds = $self->get_cmds;
 
     # split base on jps, then create sbatch scripts.
     my @stack;
@@ -24,7 +23,7 @@ sub dedicated {
 
     foreach my $cmd (@stack) {
         chomp $cmd;
-        $self->dedicated_writer( $cmd );
+        $self->dedicated_writer($cmd);
     }
 
     ## launch sbatch scripts.
@@ -68,10 +67,8 @@ sub dedicated_launcher {
             }
         }
         else {
-            my $launch = sprintf(
-                "%s %s &>> launch.index",
-                $self->{SBATCH}->{$self->{cluster}}, $launch
-            );
+            my $launch = sprintf( "%s %s &>> launch.index",
+                $self->{SBATCH}->{ $self->{cluster} }, $launch );
             system $launch;
             $running++;
             next;
@@ -82,7 +79,7 @@ sub dedicated_launcher {
 ## ----------------------------------------------------- ##
 
 sub _jobs_status {
-    my $self   = shift;
+    my $self = shift;
 
     my $squeue = sprintf(
         "%s -A %s -u %s -h | wc -l",
@@ -112,7 +109,6 @@ sub _dedicated_wait_all_jobs {
     } while ($process);
 }
 
-
 ## ----------------------------------------------------- ##
 
 sub _dedicated_process_check {
@@ -120,12 +116,12 @@ sub _dedicated_process_check {
 
     ## make running lookup.
     my $find = sprintf(
-        "%s -u %s -A %s --format=\"%A\"",
-        $self->{SQUEUE}->{$self->{cluster}}, 
-        $self->user, $self->account
-    ); 
+        "%s -u %s -A %s --format=%s -h",
+        $self->{SQUEUE}->{ $self->{cluster} },
+        $self->user, $self->account, "\"%A\""
+    );
     my @running = `$find`;
-    return if (! @running);
+    return if ( !@running );
 
     my %processing;
     foreach my $run (@running) {
@@ -136,12 +132,12 @@ sub _dedicated_process_check {
     my @indexes = `cat launch.index`;
     chomp @indexes;
 
-    my $current; 
+    my $current;
     foreach my $launched (@indexes) {
         chomp $launched;
 
         my @section = split /\s+/, $launched;
-        if ( $processing{$section[-1]} ) {
+        if ( $processing{ $section[-1] } ) {
             $current++;
         }
     }
@@ -156,7 +152,7 @@ sub _dedicated_error_check {
     my @error = `grep error *.out`;
     if ( !@error ) { return }
 
-    $self->ERROR("*out files were found with non Salvo error messages, review.");
+    $self->ERROR("*out files were found error messages.");
 }
 
 ## ----------------------------------------------------- ##

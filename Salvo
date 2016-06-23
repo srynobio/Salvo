@@ -46,8 +46,8 @@ Synopsis:
 
     Salvo - Slurm command and job launcher v 0.2.1
 
-    ./Salvo -command_file <FILE> -account <STRING> -partition <STRING> -uid <STRING>
-    ./Salvo -command_file <FILE> -account <STRING> -partition <STRING> -uid <STRING> -just_batch 
+    ./Salvo -command_file <FILE> -account <STRING> -partition <STRING> 
+    ./Salvo -command_file <FILE> -account <STRING> -partition <STRING> -just_batch 
 
 Description:
 
@@ -66,17 +66,16 @@ Required options:
     -account, -a            :   CHPC account name. e.g. yandell-em. <STRING> 
     -partition, -p          :   CHPC partition to run jobs on. e.g. ember-freecycle <STRING>
     -cluster, -c            :   Cluster to launch to.
-    -uid                    :   Your University or employee id. <STRING> 
-
 
 Options without full requirements:
 
     -sinfo_idle, -si        :   Prints to STDOUT all idle nodes in all cluster environments.
-    -squeue_me, -sm         :   Prints to STDOUT squeue information in all cluster environments under your uid number. (uid required)
-    -scancel, -cxl          :   Will run the scancel command on requested cluster.  (uid, account, cluster required).
+    -squeue_me, -sm         :   Prints to STDOUT squeue information in all cluster environments under your uid number. 
+    -scancel, -cxl          :   Will run the scancel command on requested cluster.  (account, cluster required).
 
 Additional options:
 
+    -uid                    :   Your University or employee id. <STRING> (default ENV{USER} ). 
     -time, -t               :   Time to allow each job to run on node <STRING> (default 1:00:00).
     -node, -n               :   Number of nodes to run per sbatch job submitted. <INT> default 1).
     -queue_limit, -ql       :   Number of jobs to launch and run in the queue at one time. <INT> (default 1).
@@ -113,6 +112,13 @@ GetOptions(
     "help|h",
 );
 
+## set up some defaults.
+$salvo_opts{jobs_per_sbatch} //= 1;
+$salvo_opts{time} //= '1:00:00';
+$salvo_opts{nodes} //= 1;
+$salvo_opts{queue_limit} //= 1;
+$salvo_opts{uid} //= $ENV{USER};
+
 ## Just run clean up.
 if ( $salvo_opts{clean} ) { 
     `rm *out *sbatch launch.index`;
@@ -127,16 +133,13 @@ if ( $salvo_opts{sinfo_idle} ) {
 }
 
 if ( $salvo_opts{squeue_me} ) {
-    unless ( $salvo_opts{uid} ) {
-        die $usage, "-uid required!";
-    }
     squeue_me();
     exit(0);
 }
 
 if ( $salvo_opts{scancel} ) {
-    unless ( $salvo_opts{uid} and $salvo_opts{account} and $salvo_opts{cluster} ) {
-        die $usage, "-uid, -account, -cluster required!";
+    unless ( $salvo_opts{account} and $salvo_opts{cluster} ) {
+        die $usage, "-account, -cluster required!";
     }
     scancel();
     exit(0);
@@ -144,8 +147,8 @@ if ( $salvo_opts{scancel} ) {
 
 ## Require check
 unless ( 
-    $salvo_opts{commands_file} and $salvo_opts{account} and $salvo_opts{cluster} and $salvo_opts{partition} and $salvo_opts{uid} ) {
-    die "$usage\n[ERROR] - Options command_file, account, cluster, uid and partition required.";
+    $salvo_opts{commands_file} and $salvo_opts{account} and $salvo_opts{cluster} and $salvo_opts{partition} ) {
+    die "$usage\n[ERROR] - Options command_file, account, cluster and partition required.";
 }
 
 ## clean up old sbatch scripts.
@@ -283,7 +286,6 @@ sub _relaunch {
     }
     if ( !@error ) { return }
 
-#    my %relaunch;
     my @relaunch;
     my @error_files;
     foreach my $cxl (@error) {
@@ -306,7 +308,6 @@ sub _relaunch {
         ## record launch id with sbatch script
         next unless ( $cxl =~ /PREEMPTION|CANCELLED/ );
         push @relaunch, $sbatch;
-#        $relaunch{ $ids[4] } = $sbatch;
     }
 
     foreach my $rerun (@relaunch) {
@@ -314,23 +315,6 @@ sub _relaunch {
         system "$ENV{SBATCH}->{$salvo_opts{cluster}} $rerun >> launch.index";
         say "[WARN] Relaunching job $rerun";
     }
-
-
-
-
-#    my @indexs = `cat launch.index`;
-#    chomp @indexs;
-#
-#    foreach my $line (@indexs) {
-#        chomp $line;
-#        my @parts = split /\s/, $line;
-#
-#        ## find in lookup and dont re-relaunch.
-#        if ( $relaunch{ $parts[-1] } ) {
-#            system "$ENV{SBATCH}->{$salvo_opts{cluster}} $relaunch{$parts[-1]} >> launch.index";
-#            say "[WARN] Relaunching job $relaunch{$parts[-1]}";
-#        }
-#    }
 
     ## remove error files.
     unlink @error_files;
