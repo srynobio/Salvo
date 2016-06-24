@@ -25,7 +25,7 @@ has socket => (
     },
 );
 
-has child => (
+has subprocess => (
     is      => 'ro',
     default => sub {
         my $self = shift;
@@ -42,8 +42,9 @@ sub idle {
     my $self = shift;
     $self->create_cmd_files;
 
+    ## this begins beacon.s
     my $subprocess = 0;
-    my $pm         = $self->child;
+    my $pm         = $self->subprocess;
     while ( $subprocess < 1 ) {
         $subprocess++;
         $pm->start and next;
@@ -54,11 +55,10 @@ sub idle {
         kill 'KILL', $child;
     }
 
+    ## nodes are collect and beacon.c is launched to.
   MORENODES:
     my $access = $self->ican_access;
     while ( my ( $node_name, $node_data ) = each %{$access} ) {
-        ## check if excluded
-        next if ( $node_name eq $self->exclude_cluster );
 
         foreach my $detail ( keys %{$node_data} ) {
             next if ( $detail eq 'account_info' );
@@ -68,41 +68,61 @@ sub idle {
         $self->_idle_launcher($node_data);
     }
 
+    ## let some work get done.
+    $self->INFO("Processing...");
+    sleep 300;
+
+  CHECKPROCESS:
     if ( $self->get_cmd_files ) {
-        $self->INFO("Looking for more nodes.");
-        sleep 600;
+        $self->INFO("Checking for unprocessed cmd files.");
         goto MORENODES;
     }
-    
-    ## wait for processing file before clean up.
-    while ( $self->get_processing_files ) {
-        $self->INFO("Waiting for processing jobs.");
+
+    if ( $self->get_processing_files ) {
         sleep 300;
-        redo;
+        $self->INFO("Checking processing jobs.");
+        $self->check_preemption;
+        goto CHECKPROCESS;
     }
     $pm->wait_all_children;
-    $self->node_clean_up;
+    $self->node_flush;
 }
 
 ## ----------------------------------------------------- ##
 
-sub create_cmd_files {
+sub check_preemption {
     my $self = shift;
-    my $cmds = $self->get_cmds;
 
-    # split base on jps, then create sbatch scripts.
-    my @cmdstack;
-    push @cmdstack, [ splice @{$cmds}, 0, $self->jobs_per_sbatch ]
-      while @{$cmds};
+    my @out_files = glob "salvo*out";
 
-    my $cmds_count = 0;
-    foreach my $stack (@cmdstack) {
-        $cmds_count++;
-        my $w_file = "salvo.work.$cmds_count.cmds";
+    my @rerun;
+    foreach my $out (@out_files) {
+say "out: $out";
+        chomp $out;
+        open( my $IN, '<', $out );
 
-        open( my $FH, '>', $w_file );
-        map { say $FH $_ } @{$stack};
-        close $FH;
+        my $reprocess;
+        foreach my $line (<$IN>) {
+            chomp $line;
+say "line: $line";
+            if ( $line =~ /^Processing/ ) {
+                my ( undef, $reprocess ) = split /:/, $line;
+            }
+            if ( $line =~ /(PREEMPTION|CANCELLED)/ ) {
+                push @rerun, $reprocess;
+                undef $reprocess;
+            }
+        }
+        close $IN;
+    }
+
+    ## rename back to cmd to be picked up.
+    foreach my $file (@rerun) {
+say "file: $file";
+        my $new_file = "$file.processing";
+        if ( -d $new_file ) {
+            move( $new_file, $file );
+        }
     }
 }
 
@@ -115,7 +135,7 @@ sub start_beacon {
     $| = 1;
 
     my $socket = $self->socket;
-    $self->INFO("Server beacon launching.");
+    $self->INFO("Server beacon launched.");
 
     do {
         my $client = $socket->accept;
@@ -144,6 +164,7 @@ sub start_beacon {
         $client->send($message);
 
     } while ( $self->get_cmd_files );
+
     $socket->close;
 }
 
@@ -186,7 +207,7 @@ sub get_cmd_files {
 sub get_processing_files {
     my $self = shift;
 
-    my @process_files = glob "salvo.work.*.processs.processing";
+    my @process_files = glob "salvo.work.*.cmds.processing";
     (@process_files) ? ( return @process_files ) : (return 0);
 }
 
