@@ -4,34 +4,6 @@ use warnings;
 use feature 'say';
 use IO::Socket::INET;
 
-open( my $IN, '<', $ARGV[0] ) or die "input file needed.";
-
-my @cmdstack;
-foreach my $cmd (<$IN>) {
-    chomp $cmd;
-    push @cmdstack, $cmd;
-}
-die "No commands collected" if ( !@cmdstack );
-
-my @file_repo;
-my $work_count = scalar @cmdstack;
-for ( my $i = 0 ; $i < $work_count ; $i++ ) {
-
-    last if ( !@cmdstack );
-    my $w_file = "salvo.work.$i.cmds";
-    open( my $FH, '>', $w_file );
-
-    my @write_data;
-    for ( 1 .. 5 ) {
-        my $cmd = shift @cmdstack;
-        push @write_data, $cmd;
-    }
-    map { say $FH $_ } @write_data;
-
-    close $FH;
-    push @file_repo, $w_file;
-}
-
 # flush after every write
 $| = 1;
 

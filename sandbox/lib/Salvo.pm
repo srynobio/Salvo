@@ -65,14 +65,6 @@ has partition => (
     },
 );
 
-has concurrent => (
-    is      => 'ro',
-    default => sub {
-        my $self = shift;
-        return $self->{concurrent} || undef;
-    },
-);
-
 has exclude_nodes => (
     is      => 'ro',
     default => sub {
@@ -202,7 +194,7 @@ sub fire {
 
 ## ----------------------------------------------------- ##
 
-sub get_cmds {
+sub create_cmd_files {
     my $self = shift;
 
     my $file = $self->command_file;
@@ -211,16 +203,21 @@ sub get_cmds {
     my @cmd_stack;
     foreach my $cmd (<$IN>) {
         chomp $cmd;
-
-        if ( $self->jobs_per_sbatch > 1 and $self->concurrent ) {
-            push @cmd_stack, "$cmd &";
-        }
-        else {
-            push @cmd_stack, $cmd;
-        }
+        push @cmd_stack, $cmd;
     }
     close $IN;
-    return \@cmd_stack;
+
+    my @commands;
+    push @commands, [ splice @cmd_stack, 0, $self->jobs_per_sbatch ]
+      while @cmd_stack;
+
+    my $id;
+    foreach my $stack (@commands) {
+        $id++;
+        open( my $FH, '>', "salvo.work.$id.cmds" );
+        map { say $FH $_ } @{$stack};
+        close $FH;
+    }
 }
 
 ## ----------------------------------------------------- ##
@@ -229,6 +226,7 @@ sub additional_steps {
     my $self = shift;
 
     return undef if ( !$self->{additional_steps} );
+    $self->INFO("Additional steps found adding to sbatch scripts.");
 
     my @steps;
     if ( $self->{additional_steps} ) {
@@ -237,7 +235,6 @@ sub additional_steps {
             map { $_ =~ s/^\s+//g } @steps;
         }
         else {
-            $self->INFO("Additional step (not comma separated) found.");
             push @steps, $self->{additional_steps};
         }
     }
@@ -246,7 +243,7 @@ sub additional_steps {
 
 ## ----------------------------------------------------- ##
 
-sub node_clean_up {
+sub node_flush {
     my $self = shift;
 
     open( my $INDX, '<', 'launch.index' )
@@ -285,6 +282,7 @@ sub ican_access {
         chomp $id;
 
         my ( undef, $account, $cluster, $partition ) = split /\s+/, $id;
+        next if ( $cluster eq $self->exclude_cluster );
 
         ## remove hyphens
         $account   =~ s/\-/_/g;

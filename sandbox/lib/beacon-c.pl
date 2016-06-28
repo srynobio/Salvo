@@ -72,6 +72,7 @@ sub process_cmds {
 
         if ($err) {
             $error_count++;
+            say "beacon.c error: $err";
             say $ERR $cmd;
         }
         $pm->finish;
@@ -80,7 +81,7 @@ sub process_cmds {
 
     if ( !$error_count ) {
         my $new_file = "$abs_file.complete";
-        if ( !-d $new_file ) {
+        if ( ! -d $new_file ) {
             move( $abs_file, $new_file );
         }
     }
