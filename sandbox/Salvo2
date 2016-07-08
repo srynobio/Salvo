@@ -1,0 +1,117 @@
+#!/usr/bin/env perl
+# Salvo2
+use strict;
+use warnings;
+use feature 'say';
+use autodie;
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use Salvo;
+use Getopt::Long;
+
+my $usage = <<"EOM"; 
+
+Synopsis:
+
+    Salvo - Slurm command and job launcher v 1.2.1
+
+
+Description:
+
+    Designed to aid launching of jobs on Slurm jobs from a command txt file.
+    View github page <https://github.com/srynobio/Salvo> for more detailed description.
+
+    Version 1.2.1 now allows CHPC users to submit jobs to in two different modes to:
+        kingspeak-guest
+        ash-guest
+        ember-guest.
+        lonepeak-guest (does not have access to UCGD lustre space).
+
+    \%salvo_opts,             "command_file|cf=s",
+    "account|a=s",            "partition|p=s",
+    "cluster|c=s",            "mode|m=s",
+    "user|u=s",               "jobs_per_sbatch|jps=i",
+    "hyperthread",            "clean",
+    "exclude_cluster|ec=s",   "runtime|r=s",
+    "nodes_per_sbatch|nps=i", "queue_limit|ql=i",
+    "additional_steps|as=s",  "exclude_nodes|en=s",
+    "help|h",
+)
+
+
+EOM
+
+
+my %salvo_opts;
+GetOptions(
+    \%salvo_opts,             "command_file|cf=s",
+    "account|a=s",            "partition|p=s",
+    "cluster|c=s",            "mode|m=s",
+    "user|u=s",               "jobs_per_sbatch|jps=i",
+    "hyperthread",            "clean",
+    "exclude_cluster|ec=s",   "runtime|r=s",
+    "nodes_per_sbatch|nps=i", "queue_limit|ql=i",
+    "additional_steps|as=s",  "exclude_nodes|en=s",
+    "help|h",
+);
+
+if ( $salvo_opts{help} ) {
+    say $usage;
+    exit(0);
+}
+
+if ( $salvo_opts{clean} ) {
+    my @salvo_files = glob "salvo*";
+    unlink @salvo_files;
+    say "Cleaned up!";
+    exit(0);
+}
+
+## Check required.
+unless ( $salvo_opts{mode} and $salvo_opts{command_file} ) {
+    say $usage;
+    say "Required options not met.";
+    exit(1);
+}
+
+my $salvo = Salvo->new( \%salvo_opts );
+$salvo->fire;
+
+
+__END__
+
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use feature 'say';
+use autodie;
+use Salvo;
+
+my $file = $ARGV[0] or die;
+
+my $test = Salvo->new(
+    {
+        user             => 'u0413537',
+        command_file     => $file,
+        mode             => 'idle',
+        account          => 'smithp-guest',
+        partition        => 'ash-guest',
+        cluster          => 'ash',
+        jobs_per_sbatch  => '2',
+        #additional_steps => 'module load samtools',
+        exclude_nodes    => 'kingspeak:kp[001-095,168-195,200-227]',
+        exclude_cluster  => 'lonepeak',
+        runtime          => '5:00:00',
+        nodes_per_sbatch => '1',
+        queue_limit      => '102',
+        hyperthread      => '1',
+    }
+);
+
+my @need_to_clean = glob q("*sbatch salvo.work*.cmds");
+if (@need_to_clean) {
+    say "[WARN] Removing old salvo files";
+    unlink @need_to_clean;
+}
+
+

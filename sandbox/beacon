@@ -1,23 +1,21 @@
 #!/usr/bin/env perl
+# beacon.c
 use strict;
 use warnings;
 use feature 'say';
 use IO::Socket::INET;
 use Sys::Hostname;
-##use IPC::Cmd 'run_forked';
 use IPC::Open3;
 use Parallel::ForkManager;
 use Cwd 'abs_path';
 use File::Copy;
 
-use Data::Dumper;
-
-
 # flush after every write
 $| = 1;
 
+my $localhost = $ARGV[0];
 my $socket = new IO::Socket::INET(
-    PeerHost => '10.242.128.49',
+    PeerHost => $localhost,
     PeerPort => '45652',
     Proto    => 'tcp',
     Type     => SOCK_STREAM,
@@ -35,13 +33,16 @@ $socket->recv( $message, 1024 );
 my ($cmd_file, $cpu) = split /:/, $message;
 
 if ( !$cmd_file ) {
-    say "Error receiving command file!";
+    say "Error receiving command file! Got: $message";
     $socket->close;
+    exit(1);
 }
 
 ## kill unneeded clients
 if ( $cmd_file eq 'die') {
+    say "...No work left, turning off beacon.";
     $socket->close;
+    exit(0);
 }
 
 say "Processing file:$cmd_file";

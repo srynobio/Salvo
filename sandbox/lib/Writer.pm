@@ -75,6 +75,7 @@ sub beacon_writer {
     my $jobname   = 'salvo-' . $self->random_id;
     my $slurm_out = $jobname . '.out';
     my $outfile   = $jobname . '.sbatch';
+    my $nps       = $self->nodes_per_sbatch;
 
     # collect from info hash & object
     my $account   = $node_detail->{account_info}->{ACCOUNT};
@@ -98,10 +99,19 @@ sub beacon_writer {
         $extra_steps = join( "\n", @{ $self->additional_steps } );
     }
 
+    ## change to beacon.c location
+    ## and create command.
+    my $beacon = $0;
+    $beacon =~ s/Salvo2/beacon/;
+
+    ## get localhost to pass to beacon
+    my $localhost  = $self->localhost;
+    my $beacon_cmd = "$beacon $localhost";
+
     my $sbatch = <<"EOM";
 #!/bin/bash
 #SBATCH -t $runtime
-#SBATCH -N 1
+#SBATCH -N $nps
 #SBATCH -A $account
 #SBATCH -p $partition
 #SBATCH -J $jobname
@@ -113,7 +123,7 @@ cd $work_dir
 
 $extra_steps
 
-./beacon-c.pl
+$beacon_cmd
 
 wait
 

@@ -93,7 +93,7 @@ has runtime => (
     is      => 'ro',
     default => sub {
         my $self = shift;
-        return $self->{runtime} || '3:00:00';
+        return $self->{runtime} || '5:00:00';
     },
 );
 
@@ -109,9 +109,11 @@ has queue_limit => (
     is      => 'ro',
     default => sub {
         my $self = shift;
-        return $self->{queue_limit} || 10;
+        return $self->{queue_limit} || 50;
     },
 );
+
+has localhost => ( is => 'rw' );
 
 has hyperthread => (
     is      => 'ro',
@@ -161,9 +163,14 @@ sub BUILD {
         ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/scancel',
     };
 
-    unless ( $args->{user} && $args->{command_file} && $args->{mode} ) {
+    unless ( $args->{command_file} && $args->{mode} ) {
         say "[ERROR] required options not given,";
         exit(1);
+    }
+
+    ## check that command file exists.
+    if ( !-e $args->{command_file} ) {
+        $self->ERROR("Command file given could not be found.");
     }
 
     ## populate the object.
@@ -177,15 +184,16 @@ sub BUILD {
 sub fire {
 
     my $self = shift;
+    my $mode = $self->mode;
 
-    if ( $self->mode eq 'dedicated' ) {
+    if ( $mode eq 'dedicated' ) {
         $self->dedicated;
     }
-    elsif ( $self->mode eq 'idle' ) {
+    elsif ( $mode eq 'idle' ) {
         $self->idle;
     }
     else {
-        $self->ERROR("Misfire!! $self->mode not an mode option.");
+        $self->ERROR("Misfire!! $mode not an mode option.");
     }
     unlink 'launch.index';
     say "Salvo Done!";
@@ -322,8 +330,7 @@ sub ican_access {
 
         ## add number of nodes and account info
         my $number_of_nodes = scalar keys %{ $useable_nodes->{$found} };
-        $useable_nodes->{$found}{nodes_count} = $number_of_nodes;
-
+        $useable_nodes->{$found}{nodes_count}  = $number_of_nodes;
         $useable_nodes->{$found}{account_info} = $aval{$found}->[0];
     }
     return $useable_nodes;
