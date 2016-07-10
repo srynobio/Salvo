@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use feature 'say';
 use Moo::Role;
+use IO::Dir;
 
 ## ----------------------------------------------------- ##
 ##                    Attributes                         ##
@@ -38,10 +39,6 @@ sub dedicated {
     $self->INFO("Jobs launched, monitoring process.");
     $self->_dedicated_wait_all_jobs();
     $self->_dedicated_error_check();
-
-    unlink 'launch.index';
-    say "Salvo Done!";
-    exit(0);
 }
 
 ## ----------------------------------------------------- ##

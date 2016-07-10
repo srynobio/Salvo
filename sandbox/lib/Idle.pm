@@ -40,7 +40,7 @@ has subprocess => (
     },
 );
 
-has active => ( is => 'rw', );
+has active => ( is => 'rw' );
 
 ## ----------------------------------------------------- ##
 ##                     Methods                           ##
@@ -113,7 +113,8 @@ sub idle {
 sub check_preemption {
     my $self = shift;
 
-    my @out_files = glob "salvo*out";
+    my $out_name = $self->jobname . "*out";
+    my @out_files = glob "$out_name";
 
     my @reruns;
     my @outfiles;
@@ -146,8 +147,8 @@ sub check_preemption {
         next if ( -e "$file.processing.complete" );
         my $new_file = "$file.processing";
         if ( !-d $new_file ) {
-            $self->WARN(
-"Preemption or timed out job: $file found, renaming to launch again."
+            $self->WARN( 
+                "Preemption or timed out job: $file found, renaming to launch again."
             );
             move( $new_file, $file );
         }
@@ -233,7 +234,8 @@ sub node_cpu_details {
 sub get_cmd_files {
     my $self = shift;
 
-    my @cmd_files = glob "salvo.work.*.cmds";
+    my $cmd_name = $self->jobname .  ".work.*.cmds";
+    my @cmd_files = glob "$cmd_name";
     (@cmd_files) ? ( return @cmd_files ) : ( return undef );
 }
 
@@ -242,7 +244,8 @@ sub get_cmd_files {
 sub get_processing_files {
     my $self = shift;
 
-    my @process_files = glob "salvo.work.*.cmds.processing";
+    my $proc_name = $self->jobname .  ".work.*.cmds.processing";
+    my @process_files = glob "$proc_name";
     (@process_files) ? ( return 1 ) : ( return undef );
 }
 

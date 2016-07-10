@@ -128,6 +128,27 @@ has hyperthread => (
     },
 );
 
+has jobname => (
+    is => 'ro',
+    default => sub {
+        my $self = shift;
+        return $self->{jobname} || 'salvo';
+    },
+);
+
+has concurrent => (
+    is =>'ro',
+    default => sub {
+        my $self = shift;
+        if ( $self->{concurrent} ) {
+            return 1;
+        }
+        else {
+            return undef;
+        }
+    },
+);
+
 ## ----------------------------------------------------- ##
 ##                     Methods                           ##
 ## ----------------------------------------------------- ##
@@ -163,6 +184,17 @@ sub BUILD {
         ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/scancel',
     };
 
+    ## populate the object.
+    foreach my $options ( keys %{$args} ) {
+        $self->{$options} = $args->{$options};
+    }
+
+    ## For reporting options.
+    if ( $args->{sinfo_idle} or $args->{squeue_me} or $args->{node_info} ) {
+        return;
+    }
+
+    ## check requirements
     unless ( $args->{command_file} && $args->{mode} ) {
         say "[ERROR] required options not given,";
         exit(1);
@@ -171,11 +203,6 @@ sub BUILD {
     ## check that command file exists.
     if ( !-e $args->{command_file} ) {
         $self->ERROR("Command file given could not be found.");
-    }
-
-    ## populate the object.
-    foreach my $options ( keys %{$args} ) {
-        $self->{$options} = $args->{$options};
     }
 }
 
@@ -202,6 +229,27 @@ sub fire {
 
 ## ----------------------------------------------------- ##
 
+sub get_cmds {
+    my $self = shift;
+
+    my $file = $self->command_file;
+    open( my $IN, '<', $file );
+
+    my @cmd_stack;
+    foreach my $cmd (<$IN>) {
+        chomp $cmd;
+        if ($self->concurrent) {
+            $cmd = "$cmd &";
+        }
+        push @cmd_stack, $cmd;
+    }
+    close $IN;
+
+    return \@cmd_stack;
+}
+
+## ----------------------------------------------------- ##
+
 sub create_cmd_files {
     my $self = shift;
 
@@ -222,7 +270,8 @@ sub create_cmd_files {
     my $id;
     foreach my $stack (@commands) {
         $id++;
-        open( my $FH, '>', "salvo.work.$id.cmds" );
+        my $file = $self->jobname . ".work.$id.cmds";
+        open( my $FH, '>', $file );
         map { say $FH $_ } @{$stack};
         close $FH;
     }

@@ -35,8 +35,12 @@ Description:
     "exclude_cluster|ec=s",   "runtime|r=s",
     "nodes_per_sbatch|nps=i", "queue_limit|ql=i",
     "additional_steps|as=s",  "exclude_nodes|en=s",
+    "jobname|j=s", "concurrent",
+    "squeue_me|sm", "sinfo_idle|si",
+    "node_info|ni",
     "help|h",
 )
+
 
 
 EOM
@@ -52,6 +56,9 @@ GetOptions(
     "exclude_cluster|ec=s",   "runtime|r=s",
     "nodes_per_sbatch|nps=i", "queue_limit|ql=i",
     "additional_steps|as=s",  "exclude_nodes|en=s",
+    "jobname|j=s", "concurrent",
+    "squeue_me|sm", "sinfo_idle|si",
+    "node_info|ni",
     "help|h",
 );
 
@@ -60,8 +67,26 @@ if ( $salvo_opts{help} ) {
     exit(0);
 }
 
+## Reporting options.
+if ( $salvo_opts{sinfo_idle} ) {
+    my $salvo = Salvo->new( \%salvo_opts );
+    $salvo->sinfo_idle;
+    exit(0);
+}
+if ( $salvo_opts{squeue_me} ) {
+    my $salvo = Salvo->new( \%salvo_opts );
+    $salvo->squeue_me;
+    exit(0);
+}
+if ( $salvo_opts{node_info} ) {
+    my $salvo = Salvo->new( \%salvo_opts );
+    $salvo->report_node_info;
+    exit(0);
+}
+
+## Clean up option.
 if ( $salvo_opts{clean} ) {
-    my @salvo_files = glob "salvo*";
+    my @salvo_files = glob q(*processing *launched *out *complete *cmds);
     unlink @salvo_files;
     say "Cleaned up!";
     exit(0);
@@ -76,42 +101,4 @@ unless ( $salvo_opts{mode} and $salvo_opts{command_file} ) {
 
 my $salvo = Salvo->new( \%salvo_opts );
 $salvo->fire;
-
-
-__END__
-
-#!/usr/bin/env perl
-use strict;
-use warnings;
-use feature 'say';
-use autodie;
-use Salvo;
-
-my $file = $ARGV[0] or die;
-
-my $test = Salvo->new(
-    {
-        user             => 'u0413537',
-        command_file     => $file,
-        mode             => 'idle',
-        account          => 'smithp-guest',
-        partition        => 'ash-guest',
-        cluster          => 'ash',
-        jobs_per_sbatch  => '2',
-        #additional_steps => 'module load samtools',
-        exclude_nodes    => 'kingspeak:kp[001-095,168-195,200-227]',
-        exclude_cluster  => 'lonepeak',
-        runtime          => '5:00:00',
-        nodes_per_sbatch => '1',
-        queue_limit      => '102',
-        hyperthread      => '1',
-    }
-);
-
-my @need_to_clean = glob q("*sbatch salvo.work*.cmds");
-if (@need_to_clean) {
-    say "[WARN] Removing old salvo files";
-    unlink @need_to_clean;
-}
-
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# beacon.c
+# beacon.pl
 use strict;
 use warnings;
 use feature 'say';
@@ -14,14 +14,14 @@ use File::Copy;
 $| = 1;
 
 my $localhost = $ARGV[0];
-my $socket = new IO::Socket::INET(
+my $socket    = new IO::Socket::INET(
     PeerHost => $localhost,
     PeerPort => '45652',
     Proto    => 'tcp',
     Type     => SOCK_STREAM,
 ) or die "ERROR in Socket Creation : $!\n";
 
-say "beacon.c ready for work.";
+say "beacon ready for work.";
 
 ## collect node data.
 my $node = hostname;
@@ -30,7 +30,7 @@ $socket->send( $node, 1024 );
 ## get sent command file.
 my $message;
 $socket->recv( $message, 1024 );
-my ($cmd_file, $cpu) = split /:/, $message;
+my ( $cmd_file, $cpu ) = split /:/, $message;
 
 if ( !$cmd_file ) {
     say "Error receiving command file! Got: $message";
@@ -39,14 +39,14 @@ if ( !$cmd_file ) {
 }
 
 ## kill unneeded clients
-if ( $cmd_file eq 'die') {
+if ( $cmd_file eq 'die' ) {
     say "...No work left, turning off beacon.";
     $socket->close;
     exit(0);
 }
 
 say "Processing file:$cmd_file";
-process_cmds($cmd_file, $cpu);
+process_cmds( $cmd_file, $cpu );
 $socket->close;
 
 ## ---------------------------------------- ##
@@ -58,8 +58,8 @@ sub process_cmds {
 
     my $pm = Parallel::ForkManager->new($cpu);
 
-    open( my $FH, '<', $abs_file );
-    open( my $ERR, '>>', 'failed.cmds.file');
+    open( my $FH,  '<',  $abs_file );
+    open( my $ERR, '>>', 'failed.cmds.file' );
 
     my $error_count;
     foreach my $cmd (<$FH>) {
@@ -73,8 +73,8 @@ sub process_cmds {
 
         if ($err) {
             $error_count++;
-            say "beacon.c error: $err";
-            say $ERR $cmd;
+            say "beacon cmd error: $err";
+            say "$ERR\t$cmd";
         }
         $pm->finish;
     }
@@ -82,7 +82,7 @@ sub process_cmds {
 
     if ( !$error_count ) {
         my $new_file = "$abs_file.complete";
-        if ( ! -d $new_file ) {
+        if ( !-d $new_file ) {
             move( $abs_file, $new_file );
         }
     }

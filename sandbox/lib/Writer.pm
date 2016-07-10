@@ -15,7 +15,7 @@ use Moo::Role;
 sub dedicated_writer {
     my ( $self, $stack ) = @_;
 
-    my $jobname   = 'salvo-' . $self->random_id;
+    my $jobname   = $self->jobname . '-' . $self->random_id;
     my $slurm_out = $jobname . '.out';
     my $outfile   = $jobname . '.sbatch';
 
@@ -72,7 +72,7 @@ EOM
 sub beacon_writer {
     my ( $self, $node, $node_detail ) = @_;
 
-    my $jobname   = 'salvo-' . $self->random_id;
+    my $jobname   = $self->jobname . '-' . $self->random_id;
     my $slurm_out = $jobname . '.out';
     my $outfile   = $jobname . '.sbatch';
     my $nps       = $self->nodes_per_sbatch;
@@ -102,7 +102,7 @@ sub beacon_writer {
     ## change to beacon.c location
     ## and create command.
     my $beacon = $0;
-    $beacon =~ s/Salvo2/beacon/;
+    $beacon =~ s/Salvo2/beacon.pl/;
 
     ## get localhost to pass to beacon
     my $localhost  = $self->localhost;
@@ -139,7 +139,10 @@ sub random_id {
     my $self = shift;
 
     my $id = int( rand(10000) );
-    if ( -e "salvo-$id.sbatch" ) {
+    my $jobname = $self->jobname . "-$id.sbatch";
+    say $jobname;
+    if ( -e $jobname ) {
+        #if ( -e "$jobname-$id.sbatch" ) {
         $id = $self->random_id;
     }
     return $id;
