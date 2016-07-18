@@ -137,7 +137,7 @@ has jobname => (
 );
 
 has concurrent => (
-    is =>'ro',
+    is      => 'ro',
     default => sub {
         my $self = shift;
         if ( $self->{concurrent} ) {

@@ -138,10 +138,11 @@ EOM
 sub random_id {
     my $self = shift;
 
-    my $id = int( rand(10000) );
+    my $id      = int( rand(10000) );
     my $jobname = $self->jobname . "-$id.sbatch";
     say $jobname;
     if ( -e $jobname ) {
+
         #if ( -e "$jobname-$id.sbatch" ) {
         $id = $self->random_id;
     }
