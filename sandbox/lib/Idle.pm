@@ -14,19 +14,27 @@ use File::Copy;
 has socket => (
     is      => 'ro',
     default => sub {
-        my $self = shift;
-        my $host_id = `ifconfig eth0 | grep 'inet addr' | cut -d':' -f2 | awk '{print \$1}'`;
-        chomp $host_id;
-        my $socket = IO::Socket::INET->new(
-            LocalHost => $host_id,
-            LocalPort => 45652,
-            Proto     => 'tcp',
-            Type      => SOCK_STREAM,
-            Listen    => SOMAXCONN,
-            Reuse     => 1
-        );
-        $self->{socket} = $socket;
-        $self->localhost($host_id);
+        my $self    = shift;
+        my $host_id = $self->get_host_id;
+        my ( $lower, $upper ) = $self->get_port_range;
+
+        my $socket;
+        for ( $lower .. $upper ) {
+            $socket = IO::Socket::INET->new(
+                LocalHost => $host_id,
+                LocalPort => $_,
+                Proto     => 'tcp',
+                Type      => SOCK_STREAM,
+                Listen    => SOMAXCONN,
+                Reuse     => 1
+            );
+            if ($socket) {
+                $self->{socket} = $socket;
+                $self->localhost($host_id);
+                $self->localport($_);
+                last;
+            }
+        }
         return $socket;
     },
 );
@@ -290,6 +298,26 @@ sub _idle_launcher {
         ## rename so not double launched.
         rename $launch, "$launch.launched";
     }
+}
+
+## ----------------------------------------------------- ##
+
+sub get_host_id {
+    my $self = shift;
+    my $host_id = `ifconfig eth0 | grep 'inet addr' | cut -d':' -f2 | awk '{print \$1}'`;
+    chomp $host_id;
+    return $host_id;
+}
+
+## ----------------------------------------------------- ##
+
+sub get_port_range {
+    my $self = shift;
+
+    my @port_ranges = split /\s+/, `sysctl net.ipv4.ip_local_port_range`;
+    my $lower = $port_ranges[2];
+    my $upper = $port_ranges[3];
+    return $lower, $upper;
 }
 
 ## ----------------------------------------------------- ##

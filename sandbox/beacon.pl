@@ -13,8 +13,11 @@ use File::Copy;
 # flush after every write
 $| = 1;
 
+## get commandline host and port info.
 my $localhost = $ARGV[0];
-my $socket    = new IO::Socket::INET(
+my $localport = $ARGV[1];
+
+my $socket = new IO::Socket::INET(
     PeerHost => $localhost,
     PeerPort => '45652',
     Proto    => 'tcp',
@@ -69,13 +72,13 @@ sub process_cmds {
 
         my ( $write, $read, $err );
         my $pid = open3( $write, $read, $err, $cmd );
-        waitpid( $pid, 0 );
 
         if ($err) {
             $error_count++;
             say "beacon cmd error: $err";
             say "$ERR\t$cmd";
         }
+        waitpid( $pid, 0 );
         $pm->finish;
     }
     $pm->wait_all_children;

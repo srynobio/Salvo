@@ -114,6 +114,7 @@ has queue_limit => (
 );
 
 has localhost => ( is => 'rw' );
+has localport => ( is => 'rw' );
 
 has hyperthread => (
     is      => 'ro',

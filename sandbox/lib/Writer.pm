@@ -99,14 +99,10 @@ sub beacon_writer {
         $extra_steps = join( "\n", @{ $self->additional_steps } );
     }
 
-    ## change to beacon.c location
-    ## and create command.
-    my $beacon = $0;
-    $beacon =~ s/Salvo2/beacon.pl/;
-
-    ## get localhost to pass to beacon
+    ## get localhost and localport to pass to beacon
     my $localhost  = $self->localhost;
-    my $beacon_cmd = "$beacon $localhost";
+    my $localport  = $self->localport;
+    my $beacon_opts = "$localhost $localport";
 
     my $sbatch = <<"EOM";
 #!/bin/bash
@@ -123,7 +119,7 @@ cd $work_dir
 
 $extra_steps
 
-$beacon_cmd
+beacon.pl $beacon_opts
 
 wait
 
