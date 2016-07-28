@@ -100,9 +100,9 @@ sub beacon_writer {
     }
 
     ## get localhost and localport to pass to beacon
-    my $localhost  = $self->localhost;
-    my $localport  = $self->localport;
-    my $beacon_opts = "$localhost $localport";
+    my $localhost   = $self->localhost;
+    my $localport   = $self->localport;
+    my $beacon_opts = "$localhost $localport 2> $jobname.error";
 
     my $sbatch = <<"EOM";
 #!/bin/bash

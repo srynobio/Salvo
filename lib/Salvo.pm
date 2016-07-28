@@ -130,7 +130,7 @@ has hyperthread => (
 );
 
 has jobname => (
-    is => 'ro',
+    is      => 'ro',
     default => sub {
         my $self = shift;
         return $self->{jobname} || 'salvo';
@@ -183,6 +183,12 @@ sub BUILD {
         lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/scancel',
         kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/scancel',
         ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/scancel',
+    };
+    $self->{UUFSCELL} = {
+        ash       => 'ash.peaks',
+        lonepeak  => 'lonepeak.peaks',
+        kingspeak => 'kingspeak.peaks',
+        ember     => 'ember.arches',
     };
 
     ## populate the object.
@@ -239,7 +245,7 @@ sub get_cmds {
     my @cmd_stack;
     foreach my $cmd (<$IN>) {
         chomp $cmd;
-        if ($self->concurrent) {
+        if ( $self->concurrent ) {
             $cmd = "$cmd &";
         }
         push @cmd_stack, $cmd;

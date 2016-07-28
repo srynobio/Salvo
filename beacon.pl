@@ -19,7 +19,7 @@ my $localport = $ARGV[1];
 
 my $socket = new IO::Socket::INET(
     PeerHost => $localhost,
-    PeerPort => '45652',
+    PeerPort => $localport,
     Proto    => 'tcp',
     Type     => SOCK_STREAM,
 ) or die "ERROR in Socket Creation : $!\n";

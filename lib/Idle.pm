@@ -121,7 +121,7 @@ sub idle {
 sub check_preemption {
     my $self = shift;
 
-    my $out_name = $self->jobname . "*out";
+    my $out_name  = $self->jobname . "*out";
     my @out_files = glob "$out_name";
 
     my @reruns;
@@ -155,7 +155,7 @@ sub check_preemption {
         next if ( -e "$file.processing.complete" );
         my $new_file = "$file.processing";
         if ( !-d $new_file ) {
-            $self->WARN( 
+            $self->WARN(
                 "Preemption or timed out job: $file found, renaming to launch again."
             );
             move( $new_file, $file );
@@ -242,7 +242,7 @@ sub node_cpu_details {
 sub get_cmd_files {
     my $self = shift;
 
-    my $cmd_name = $self->jobname .  ".work.*.cmds";
+    my $cmd_name  = $self->jobname . ".work.*.cmds";
     my @cmd_files = glob "$cmd_name";
     (@cmd_files) ? ( return @cmd_files ) : ( return undef );
 }
@@ -252,7 +252,7 @@ sub get_cmd_files {
 sub get_processing_files {
     my $self = shift;
 
-    my $proc_name = $self->jobname .  ".work.*.cmds.processing";
+    my $proc_name     = $self->jobname . ".work.*.cmds.processing";
     my @process_files = glob "$proc_name";
     (@process_files) ? ( return 1 ) : ( return undef );
 }
@@ -290,7 +290,11 @@ sub _idle_launcher {
         chomp $launch;
         next unless ( $launch =~ /sbatch$/ );
 
-        my $batch = sprintf( "%s %s >> launch.index",
+        my $cluster  = $node_data->{account_info}->{CLUSTER};
+        my $uufscell = $self->{UUFSCELL}->{$cluster};
+
+        my $batch =
+          sprintf( "%s --export=UUFSCELL=$uufscell %s >> launch.index",
             $self->{SBATCH}->{ $node_data->{account_info}->{CLUSTER} },
             $launch );
         system $batch;
@@ -315,8 +319,8 @@ sub get_port_range {
     my $self = shift;
 
     my @port_ranges = split /\s+/, `sysctl net.ipv4.ip_local_port_range`;
-    my $lower = $port_ranges[2];
-    my $upper = $port_ranges[3];
+    my $lower       = $port_ranges[2];
+    my $upper       = $port_ranges[3];
     return $lower, $upper;
 }
 
