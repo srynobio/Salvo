@@ -1,0 +1,3 @@
+## TODO
+1. Add the ability to have commands be passed and managed (self-discovery) based on CPU and memory of each node.
+2. Add the option of memory requirements on each node.
