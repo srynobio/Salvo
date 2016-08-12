@@ -54,6 +54,7 @@ $exclude
 # Working directory
 cd $work_dir
 
+module load ucgd_modules
 $extra_steps
 
 $cmds
@@ -84,6 +85,7 @@ sub beacon_writer {
     $partition =~ s/_/-/g;
     my $work_dir = $self->work_dir;
     my $runtime  = $self->runtime;
+    my $user     = $self->user;
 
     my $exclude = '';
     if ( $self->exclude_nodes ) {
@@ -117,11 +119,25 @@ $exclude
 # Working directory
 cd $work_dir
 
+module load ucgd_modules
 $extra_steps
+
+# defaults for FQF
+# clean all shared memory.
+/uufs/chpc.utah.edu/common/home/ucgdstor/common/apps/kingspeak.peaks/ucgd/dev/clean_shared.sh
+
+# # clean up before start
+ibrun -n $nps -r find /scratch/local/ -user $user -exec rm -rf {} \\;
+
+export TMPDIR=/scratch/local
 
 beacon.pl $beacon_opts
 
 wait
+
+# clean up after finish.
+ibrun -n $nps -r find /scratch/local/ -user $user -exec rm -rf {} \\;
+source /uufs/chpc.utah.edu/common/home/yandell-group1/shell/slurm_job_postrun
 
 EOM
     open( my $OUT, '>', $outfile );
