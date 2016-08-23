@@ -58,7 +58,7 @@ sub idle {
     my $self = shift;
     $self->create_cmd_files;
 
-    ## this begins beacon.s as child.
+    ## this begins beacon as child.
     my $subprocess = 0;
     my $pm         = $self->subprocess;
     while ( $subprocess < 1 ) {
@@ -174,7 +174,7 @@ sub start_beacon {
 
     my $socket = $self->socket;
     if ( !$socket ) {
-        $self->ERROR("Can not start server beacon");
+        $self->ERROR("Can not start server beacon connection error.");
         exit(1);
     }
     $self->INFO("Server beacon launched.");

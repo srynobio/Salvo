@@ -229,7 +229,7 @@ sub fire {
     else {
         $self->ERROR("Misfire!! $mode not an mode option.");
     }
-    unlink 'launch.index';
+    unlink 'launch.index' if -e 'launch.index';
     say "Salvo Done!";
     exit(0);
 }
@@ -239,8 +239,8 @@ sub fire {
 sub get_cmds {
     my $self = shift;
 
-    my $file = $self->command_file;
-    open( my $IN, '<', $file );
+    my $cf = $self->command_cf;
+    open( my $IN, '<', $cf );
 
     my @cmd_stack;
     foreach my $cmd (<$IN>) {
@@ -260,8 +260,8 @@ sub get_cmds {
 sub create_cmd_files {
     my $self = shift;
 
-    my $file = $self->command_file;
-    open( my $IN, '<', $file );
+    my $cf = $self->command_file;
+    open( my $IN, '<', $cf );
 
     my @cmd_stack;
     foreach my $cmd (<$IN>) {
@@ -311,7 +311,7 @@ sub node_flush {
     my $self = shift;
 
     open( my $INDX, '<', 'launch.index' )
-      or die $self->WARN("Could not open launch.index file for node clean up.");
+      or $self->WARN("Could not open launch.index file for node clean up.");
 
     my @ids;
     foreach my $launch (<$INDX>) {
