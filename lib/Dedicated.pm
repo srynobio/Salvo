@@ -15,7 +15,6 @@ use IO::Dir;
 
 sub dedicated {
     my $self = shift;
-
     my $cmds = $self->get_cmds;
 
     # split base on jps, then create sbatch scripts.

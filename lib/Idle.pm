@@ -73,7 +73,7 @@ sub idle {
         exit(0);
     }
 
-    ## nodes are collect and beacon.c is launched to.
+    ## nodes are collect and beacon.pl is launched.
   MORENODES:
     my $access = $self->ican_access;
     while ( my ( $node_name, $node_data ) = each %{$access} ) {

@@ -216,7 +216,6 @@ sub BUILD {
 ## ----------------------------------------------------- ##
 
 sub fire {
-
     my $self = shift;
     my $mode = $self->mode;
 
@@ -239,7 +238,7 @@ sub fire {
 sub get_cmds {
     my $self = shift;
 
-    my $cf = $self->command_cf;
+    my $cf = $self->command_file;
     open( my $IN, '<', $cf );
 
     my @cmd_stack;
