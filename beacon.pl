@@ -6,6 +6,7 @@ use feature 'say';
 use IO::Socket::INET;
 use Sys::Hostname;
 use IPC::Open3;
+use Symbol 'gensym';
 use Parallel::ForkManager;
 use Cwd 'abs_path';
 use File::Copy;
@@ -70,7 +71,8 @@ sub process_cmds {
 
         $pm->start and next;
 
-        my ( $write, $read, $err );
+        my ( $write, $read);
+        my $err = gensym;
         my $pid = open3( $write, $read, $err, $cmd );
 
         if ($err) {

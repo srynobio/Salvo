@@ -137,7 +137,7 @@ if ( $salvo_opts{node_info} ) {
 ## Clean up option.
 if ( $salvo_opts{clean} ) {
     my @salvo_files = glob q(*processing *launched *out *complete *cmds *error);
-    unlink @salvo_files;
+    unlink @salvo_files if @salvo_files;
     say "Cleaned up!";
     exit(0);
 }
