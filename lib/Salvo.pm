@@ -197,7 +197,7 @@ sub BUILD {
     }
 
     ## Return if reporting options found.
-    if ( $args->{sinfo_idle} or $args->{squeue_me} or $args->{node_info} ) {
+    if ( $args->{sinfo_idle} or $args->{squeue_me} or $args->{node_info} or $args->{reserve_info}) {
         return;
     }
 

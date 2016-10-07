@@ -47,6 +47,23 @@ sub report_node_info {
     }
     say "[Total AvailableNodes: $total_node]";
     say "[Total AvailableCPUs: $total_cpus]";
+    say "";
+
+    $self->reserve_info;
+}
+
+## ----------------------------------------------------- ##
+
+sub reserve_info {
+    my $self = shift;
+
+    foreach my $cluster ( keys %{ $self->{SINFO} } ) {
+        my $resv = `$self->{SINFO}->{$cluster} -T`;
+        say "----------------------------------";
+        say "- Node reserve info for $cluster -";
+        say "----------------------------------";
+        say $resv;
+    }
 }
 
 ## ----------------------------------------------------- ##

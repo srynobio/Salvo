@@ -88,6 +88,7 @@ Node information options:
     -squeue_me, -sm         : Will output all current runing jobs across all clusters.
     -sinfo_idle, -si        : Will output all currently idle nodes across all clusters.
     -node_info, ni          : Will give a greater detailed output of all idle nodes across all clusters.
+    -reserve_info, ri       : Will give detailed output of all current reserves across all clusters.
 
 EOM
 
@@ -96,7 +97,7 @@ GetOptions(
     \%salvo_opts,             "command_file|cf=s",
     "account|a=s",            "partition|p=s",
     "cluster|c=s",            "mode|m=s",
-    "jobs_per_sbatch|jps=i",
+    "jobs_per_sbatch|jps=i",  "reserve_info|ri",
     "hyperthread",            "clean",
     "exclude_cluster|ec=s",   "runtime|r=s",
     "nodes_per_sbatch|nps=i", "queue_limit|ql=i",
@@ -129,6 +130,11 @@ if ( $salvo_opts{squeue_me} ) {
 if ( $salvo_opts{node_info} ) {
     my $salvo = Salvo->new( \%salvo_opts );
     $salvo->report_node_info;
+    exit(0);
+}
+if ( $salvo_opts{reserve_info} ) {
+    my $salvo = Salvo->new( \%salvo_opts );
+    $salvo->reserve_info;
     exit(0);
 }
 
