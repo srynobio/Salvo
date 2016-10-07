@@ -5,7 +5,7 @@
 
 ##Synopsis:
 
-    Salvo - Slurm command and job launcher v 1.2.1
+    Salvo - Slurm command and job launcher v 1.2.2
 
 ##Description:
 

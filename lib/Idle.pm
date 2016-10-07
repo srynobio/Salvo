@@ -77,7 +77,7 @@ sub idle {
   MORENODES:
     my $access = $self->ican_access;
     while ( my ( $node_name, $node_data ) = each %{$access} ) {
-        next if ( $self->qlimit_check($node_data) );
+        next if ( $self->qlimit_limit($node_data) );
 
         foreach my $detail ( keys %{$node_data} ) {
             next if ( $detail eq 'account_info' );
@@ -98,8 +98,9 @@ sub idle {
     }
 
     $self->INFO("Checking state of processing jobs.");
+    $self->check_preemption;
     if ( $self->get_processing_files ) {
-        $self->check_preemption;
+        ####    $self->check_preemption;
         sleep 300;
         goto CHECKPROCESS;
     }
@@ -139,7 +140,7 @@ sub check_preemption {
             }
             if ( $line =~ /PREEMPTION/ ) {
                 next if ( !$reprocess );
-                push @reruns,   $reprocess;
+                push @reruns, $reprocess;
                 push @outfiles, $out;
                 undef $reprocess;
             }
@@ -158,7 +159,7 @@ sub check_preemption {
             $self->WARN(
                 "Preemption or timed out job: $file found, renaming to launch again."
             );
-            move( $new_file, $file );
+            rename $new_file, $file;
         }
     }
     unlink @outfiles;
@@ -190,7 +191,7 @@ sub start_beacon {
         # Get data on who client is.
         my $node = "";
         $client->recv( $node, 1024 );
-        say "Received beacon from node: $node";
+        $self->INFO("Received beacon from node: $node");
 
         my $cpu       = $self->node_cpu_details($node);
         my @cmd_files = $self->get_cmd_files;
@@ -231,6 +232,8 @@ sub node_cpu_details {
         $cpu = $info[4];
         last if $cpu;
     }
+
+    ## hyperthread option is used here.
     if ( $self->hyperthread ) {
         $cpu = $cpu * 2;
     }
@@ -259,7 +262,7 @@ sub get_processing_files {
 
 ## ----------------------------------------------------- ##
 
-sub qlimit_check {
+sub qlimit_limit {
     my ( $self, $node_data ) = @_;
 
     my $squeue = sprintf(
@@ -290,6 +293,7 @@ sub _idle_launcher {
         chomp $launch;
         next unless ( $launch =~ /sbatch$/ );
 
+        ## uufscell needed to keep env
         my $cluster  = $node_data->{account_info}->{CLUSTER};
         my $uufscell = $self->{UUFSCELL}->{$cluster};
 
@@ -307,8 +311,8 @@ sub _idle_launcher {
 ## ----------------------------------------------------- ##
 
 sub get_host_id {
-    my $self = shift;
-    my $host_id = `ifconfig eth0 | grep 'inet addr' | cut -d':' -f2 | awk '{print \$1}'`;
+    my $self    = shift;
+    my $host_id = `hostname -i`;
     chomp $host_id;
     return $host_id;
 }

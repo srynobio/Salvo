@@ -13,7 +13,7 @@ my $usage = <<"EOM";
 
 Synopsis:
 
-    Salvo - Slurm command and job launcher v 1.2.1
+    Salvo - Slurm command and job launcher v 1.2.2
 
 Description:
 
@@ -43,7 +43,6 @@ Dedicated:
 
     Additional options:
 
-    -user, -u               :   Will add a user to run as. <STRING> (default \$ENV{USER})
     -runtime, -r            :   Time to allow each job to run on node. <STRING> (default 5:00:00)
     -nodes_per_sbatch, -nps :   Number of nodes to run per sbatch launch <INT> (default 1)
     -jobs_per_sbatch, -jps  :   Number of jobs to run per sbatch launch. <INT> (default 1)
@@ -65,7 +64,6 @@ Idle:
 
     Additional options:
 
-    -user, -u               :   Will add the user to run as. <STRING> (default \$ENV{USER})
     -runtime, -r            :   Time to allow each job to run on node. <STRING> (default 5:00:00)
     -nodes_per_sbatch, -nps :   Number of nodes to run per sbatch launch <INT> (default 1)
     -jobs_per_sbatch, -jps  :   Number of jobs to run per sbatch launch. <INT> (default 1)
@@ -98,7 +96,7 @@ GetOptions(
     \%salvo_opts,             "command_file|cf=s",
     "account|a=s",            "partition|p=s",
     "cluster|c=s",            "mode|m=s",
-    "user|u=s",               "jobs_per_sbatch|jps=i",
+    "jobs_per_sbatch|jps=i",
     "hyperthread",            "clean",
     "exclude_cluster|ec=s",   "runtime|r=s",
     "nodes_per_sbatch|nps=i", "queue_limit|ql=i",

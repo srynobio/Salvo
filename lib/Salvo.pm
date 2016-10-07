@@ -21,7 +21,7 @@ has user => (
     is      => 'rw',
     default => sub {
         my $self = shift;
-        return $self->{user} || $ENV{USER};
+        return $ENV{USER};
     },
 );
 
@@ -133,7 +133,7 @@ has jobname => (
     is      => 'ro',
     default => sub {
         my $self = shift;
-        return $self->{jobname} || 'salvo';
+        return $self->{jobname} || 'Salvo';
     },
 );
 
@@ -196,7 +196,7 @@ sub BUILD {
         $self->{$options} = $args->{$options};
     }
 
-    ## For reporting options.
+    ## Return if reporting options found.
     if ( $args->{sinfo_idle} or $args->{squeue_me} or $args->{node_info} ) {
         return;
     }
@@ -377,7 +377,7 @@ sub ican_access {
 
     foreach my $found ( keys %{$useable_nodes} ) {
         chomp $found;
-        ## remove node from list with no access.
+        ## remove node from list with no user access.
         if ( !$aval{$found} ) {
             delete $useable_nodes->{$found};
             next;

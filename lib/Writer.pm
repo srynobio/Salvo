@@ -17,6 +17,7 @@ sub dedicated_writer {
 
     my $jobname   = $self->jobname . '-' . $self->random_id;
     my $slurm_out = $jobname . '.out';
+    my $slurm_err = $jobname . '.err';
     my $outfile   = $jobname . '.sbatch';
 
     my $cmds = join( "\n", @{$stack} );
@@ -49,6 +50,7 @@ sub dedicated_writer {
 #SBATCH -p $partition
 #SBATCH -J $jobname
 #SBATCH -o $slurm_out
+#SBATCH -e $slurm_err
 $exclude
 
 # Working directory
@@ -75,6 +77,7 @@ sub beacon_writer {
 
     my $jobname   = $self->jobname . '-' . $self->random_id;
     my $slurm_out = $jobname . '.out';
+    my $slurm_err = $jobname . '.err';
     my $outfile   = $jobname . '.sbatch';
     my $nps       = $self->nodes_per_sbatch;
 
@@ -114,6 +117,7 @@ sub beacon_writer {
 #SBATCH -p $partition
 #SBATCH -J $jobname
 #SBATCH -o $slurm_out
+#SBATCH -e $slurm_err
 $exclude
 
 # Working directory
@@ -123,7 +127,7 @@ module load ucgd_modules
 $extra_steps
 
 # defaults for FQF
-# clean all shared memory.
+# run to clean all shared memory.
 /uufs/chpc.utah.edu/common/home/ucgdstor/common/apps/kingspeak.peaks/ucgd/dev/clean_shared.sh
 
 # # clean up before start
@@ -154,8 +158,6 @@ sub random_id {
     my $jobname = $self->jobname . "-$id.sbatch";
     say $jobname;
     if ( -e $jobname ) {
-
-        #if ( -e "$jobname-$id.sbatch" ) {
         $id = $self->random_id;
     }
     return $id;
