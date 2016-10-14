@@ -4,9 +4,8 @@ use strict;
 use warnings;
 use feature 'say';
 use IO::Socket::INET;
-use Sys::Hostname;
 use IPC::Open3;
-use Symbol 'gensym';
+use Sys::Hostname;
 use Parallel::ForkManager;
 use Cwd 'abs_path';
 use File::Copy;
@@ -71,19 +70,17 @@ sub process_cmds {
 
         $pm->start and next;
 
-        my ( $write, $read);
-        my $err = gensym;
+        my ( $write, $read, $err );
         my $pid = open3( $write, $read, $err, $cmd );
-        
+
+        if ($err) {
+            $error_count++;
+            say "beacon cmd error: $err";
+            say "$ERR\t$cmd";
+        }
         $pm->finish($cmd);
     }
     $pm->wait_all_children;
-
-    $pm->run_on_finish ( sub {
-            my ($pid, $exit_code, $ident) = @_;
-            say "$pid finshed with exit code: $exit_code";
-        }
-    );
 
     if ( !$error_count ) {
         my $new_file = "$abs_file.complete";

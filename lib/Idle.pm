@@ -77,12 +77,18 @@ sub idle {
   MORENODES:
     my $access = $self->ican_access;
     while ( my ( $node_name, $node_data ) = each %{$access} ) {
-        next if ( $self->qlimit_limit($node_data) );
+        next if ( $self->qlimit_check($node_data) );
 
         foreach my $detail ( keys %{$node_data} ) {
             next if ( $detail eq 'account_info' );
             next if ( $detail eq 'nodes_count' );
-            $self->beacon_writer( $node_data->{$detail}, $node_data );
+
+            if ( $self->nodes_per_sbatch > 1 ) {
+                $self->mpi_writer( $node_data->{$detail}, $node_data );
+            }
+            else {
+                $self->standard_writer( $node_data->{$detail}, $node_data );
+            }
         }
         $self->_idle_launcher($node_data);
     }
