@@ -268,7 +268,7 @@ sub get_processing_files {
 
 ## ----------------------------------------------------- ##
 
-sub qlimit_limit {
+sub qlimit_check {
     my ( $self, $node_data ) = @_;
 
     my $squeue = sprintf(
