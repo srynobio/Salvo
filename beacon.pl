@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use feature 'say';
 use IO::Socket::INET;
-use IPC::Open3;
+use IPC::Cmd 'run';
 use Sys::Hostname;
 use Parallel::ForkManager;
 use Cwd 'abs_path';
@@ -62,22 +62,34 @@ sub process_cmds {
     my $pm = Parallel::ForkManager->new($cpu);
 
     open( my $FH,  '<',  $abs_file );
-    open( my $ERR, '>>', 'failed.cmds.file' );
+
+    say "------ Node info -------";
+    say "JOBID: $ENV{SLURM_JOBID}";
+    say "Node list: $ENV{SLURM_JOB_NODELIST}";
+    say "------------------------";
 
     my $error_count;
+    my $file_count;
     foreach my $cmd (<$FH>) {
         chomp $cmd;
+        $file_count++;
 
         $pm->start and next;
 
-        my ( $write, $read, $err );
-        my $pid = open3( $write, $read, $err, $cmd );
+        my ( $success, $error_message, $full_buf, $stdout_buf, $stderr_buf ) =
+          run( command => $cmd, verbose => 0 );
 
-        if ($err) {
-            $error_count++;
-            say "beacon cmd error: $err";
-            say "$ERR\t$cmd";
+        if ($success) {
+            say "cmd completed: $cmd";
+            map { say "Buffer: $_" } @$full_buf;
         }
+        else {
+            say "error results: $error_message";
+            map { say "Error Buffer: $_" } @$full_buf;
+            need_rerun($cmd, $file_count);
+            $error_count++;
+        }
+
         $pm->finish($cmd);
     }
     $pm->wait_all_children;
@@ -88,14 +100,15 @@ sub process_cmds {
             rename $abs_file, $new_file;
         }
     }
-    else {
-        say "Failed run: $command_file";
-        my $orig_file = $command_file;
-        $orig_file =~ s/.processing//;
-        if ( !-d $orig_file ) {
-            rename $command_file, $orig_file;
-        }
-    }
+}
+
+## ---------------------------------------- ##
+
+sub need_rerun {
+    my ( $cmd, $file_count ) = @_;
+    open( my $FH, '>', "rerun.work.$node.$file_count.cmds" );
+    say $FH $cmd;
+    close $FH;
 }
 
 ## ---------------------------------------- ##

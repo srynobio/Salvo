@@ -56,12 +56,20 @@ $exclude
 # Working directory
 cd $work_dir
 
+source /scratch/ucgd/lustre/ugpuser/shell/slurm_job_prerun
+
 module load ucgd_modules
 $extra_steps
+
+# clean up before start
+/scratch/ucgd/lustre/ugpuser/shell/slurm_job_prerun
 
 $cmds
 
 wait
+
+# clean up after finish.
+/scratch/ucgd/lustre/ugpuser/shell/slurm_job_postrun
 
 EOM
     open( my $OUT, '>', $outfile );
@@ -107,7 +115,8 @@ sub mpi_writer {
     ## get localhost and localport to pass to beacon
     my $localhost   = $self->localhost;
     my $localport   = $self->localport;
-    my $beacon_opts = "$localhost $localport 2> $jobname.error";
+    my $beacon_opts = "$localhost $localport";
+    ##my $beacon_opts = "$localhost $localport 2> $jobname.error";
 
     my $sbatch = <<"EOM";
 #!/bin/bash
@@ -123,25 +132,21 @@ $exclude
 # Working directory
 cd $work_dir
 
+source /scratch/ucgd/lustre/ugpuser/shell/slurm_job_prerun
+
 module load ucgd_modules
 $extra_steps
 
-# defaults for FQF
-# run to clean all shared memory.
-/uufs/chpc.utah.edu/common/home/ucgdstor/common/apps/kingspeak.peaks/ucgd/dev/clean_shared.sh
+# clean up before start
+/scratch/ucgd/lustre/ugpuser/shell/slurm_job_prerun
 
-# # clean up before start
-ibrun -n $nps -r find /scratch/local/ -user $user -exec rm -rf {} \\;
-
-export TMPDIR=/scratch/local
-
-beacon.pl $beacon_opts
+##beacon.pl $beacon_opts
+/uufs/chpc.utah.edu/common/home/u0413537/MasterVersions/Salvo/beacon.pl $beacon_opts
 
 wait
 
 # clean up after finish.
-ibrun -n $nps -r find /scratch/local/ -user $user -exec rm -rf {} \\;
-source /uufs/chpc.utah.edu/common/home/yandell-group1/shell/slurm_job_postrun
+/scratch/ucgd/lustre/ugpuser/shell/slurm_job_postrun
 
 EOM
     open( my $OUT, '>', $outfile );
@@ -184,7 +189,8 @@ sub standard_writer {
     ## get localhost and localport to pass to beacon
     my $localhost   = $self->localhost;
     my $localport   = $self->localport;
-    my $beacon_opts = "$localhost $localport 2> $jobname.error";
+    my $beacon_opts = "$localhost $localport";
+    ##my $beacon_opts = "$localhost $localport 2> $jobname.error";
 
     my $sbatch = <<"EOM";
 #!/bin/bash
@@ -198,24 +204,18 @@ $exclude
 # Working directory
 cd $work_dir
 
+source /scratch/ucgd/lustre/ugpuser/shell/slurm_job_prerun
 module load ucgd_modules
 $extra_steps
 
-# defaults for FQF
-# clean all shared memory.
-/uufs/chpc.utah.edu/common/home/ucgdstor/common/apps/kingspeak.peaks/ucgd/dev/clean_shared.sh
+# clean up before start
+/scratch/ucgd/lustre/ugpuser/shell/slurm_job_prerun
 
-# # clean up before start
-find /scratch/local/ -user $user -exec rm -rf {} \\;
-
-export TMPDIR=/scratch/local
-
-beacon.pl $beacon_opts
-
-wait
+##beacon.pl $beacon_opts
+/uufs/chpc.utah.edu/common/home/u0413537/MasterVersions/Salvo/beacon.pl $beacon_opts
 
 # clean up after finish.
-find /scratch/local/ -user $user -exec rm -rf {} \\;
+/scratch/ucgd/lustre/ugpuser/shell/slurm_job_postrun
 
 EOM
     open( my $OUT, '>', $outfile );

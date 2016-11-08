@@ -21,7 +21,7 @@ has user => (
     is      => 'rw',
     default => sub {
         my $self = shift;
-        return $ENV{USER};
+        return $self->{user} || $ENV{USER};
     },
 );
 
@@ -113,6 +113,14 @@ has queue_limit => (
     },
 );
 
+has min_mem_required => (
+    is => 'ro',
+    default => sub {
+        my $self = shift;
+        return $self->{min_mem_required} || undef;
+    },
+);
+
 has localhost => ( is => 'rw' );
 has localport => ( is => 'rw' );
 
@@ -196,7 +204,7 @@ sub BUILD {
         $self->{$options} = $args->{$options};
     }
 
-    ## Return if reporting options found.
+    ## Return if asking for reporting info.
     if ( $args->{sinfo_idle} or $args->{squeue_me} or $args->{node_info} or $args->{reserve_info}) {
         return;
     }
@@ -422,6 +430,22 @@ sub _ican_find {
             };
         }
     }
+
+    ## remove node that dont meet memory requirements if set.
+    my $removed = 0;
+    my $mim_memory = $self->min_mem_required;
+    if ($mim_memory) {
+        foreach my $cluster ( keys %found_nodes ) {
+            foreach my $node ( keys %{ $found_nodes{$cluster} } ) {
+                my $memory = $found_nodes{$cluster}->{$node}->{MEMORY};
+                if ( $memory < $mim_memory ) {
+                    $removed++;
+                    delete $found_nodes{$cluster}->{$node};
+                }
+            }
+        }
+    }
+    $self->INFO("$removed nodes were removed for not meeting memory requirements.");
     return \%found_nodes;
 }
 
