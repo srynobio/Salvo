@@ -69,24 +69,20 @@ sub process_cmds {
     say "------------------------";
 
     my $error_count;
-    my $file_count;
+    my $cmd_count;
     foreach my $cmd (<$FH>) {
         chomp $cmd;
-        $file_count++;
+        $cmd_count++;
 
         $pm->start and next;
 
         my ( $success, $error_message, $full_buf, $stdout_buf, $stderr_buf ) =
           run( command => $cmd, verbose => 0 );
 
-        if ($success) {
-            say "cmd completed: $cmd";
-            map { say "Buffer: $_" } @$full_buf;
-        }
-        else {
+        if ( !$success ) {
             say "error results: $error_message";
             map { say "Error Buffer: $_" } @$full_buf;
-            need_rerun($cmd, $file_count);
+            need_rerun( $cmd, $cmd_count );
             $error_count++;
         }
 
@@ -96,7 +92,7 @@ sub process_cmds {
 
     if ( !$error_count ) {
         my $new_file = "$abs_file.complete";
-        if ( !-d $new_file ) {
+        if ( ! -d $new_file ) {
             rename $abs_file, $new_file;
         }
     }
@@ -105,8 +101,8 @@ sub process_cmds {
 ## ---------------------------------------- ##
 
 sub need_rerun {
-    my ( $cmd, $file_count ) = @_;
-    open( my $FH, '>', "rerun.work.$node.$file_count.cmds" );
+    my ( $cmd, $cmd_count ) = @_;
+    open( my $FH, '>', "rerun.work.$node.$cmd_count.cmds" );
     say $FH $cmd;
     close $FH;
 }

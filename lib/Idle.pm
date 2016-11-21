@@ -6,6 +6,7 @@ use Moo::Role;
 use IO::Socket::INET;
 use Parallel::ForkManager;
 use File::Copy;
+our %processing_watch;
 
 ## ----------------------------------------------------- ##
 ##                    Attributes                         ##
@@ -104,9 +105,9 @@ sub idle {
     }
 
     $self->INFO("Checking state of processing jobs.");
+    sleep 300;
     $self->check_preemption;
     if ( $self->get_processing_files ) {
-        sleep 120;
         goto CHECKPROCESS;
     }
 
@@ -143,8 +144,12 @@ sub check_preemption {
             if ( $line =~ /^Processing/ ) {
                 ( undef, $reprocess ) = split /:/, $line;
             }
+
             if ( $line =~ /PREEMPTION/ ) {
-                next if ( !$reprocess );
+                if ( !$reprocess ) {
+                    $self->watch_processing;
+                    next;
+                }
                 push @reruns,   $reprocess;
                 push @outfiles, $out;
                 undef $reprocess;
@@ -251,7 +256,6 @@ sub get_cmd_files {
     my $self = shift;
 
     my $cmd_name  = "*.cmds";
-    #my $cmd_name  = $self->jobname . ".work.*.cmds";
     my @cmd_files = glob "$cmd_name";
     (@cmd_files) ? ( return @cmd_files ) : ( return undef );
 }
@@ -262,9 +266,31 @@ sub get_processing_files {
     my $self = shift;
 
     my $proc_name     = "*.cmds.processing";
-    ####my $proc_name     = $self->jobname . ".work.*.cmds.processing";
     my @process_files = glob "$proc_name";
     (@process_files) ? ( return 1 ) : ( return undef );
+}
+
+## ----------------------------------------------------- ##
+
+sub watch_processing {
+    my $self       = shift;
+    my $processing = $self->get_processing_files;
+
+    foreach my $file ( @{$processing} ) {
+ say "test::\@279\t$file";
+        $processing_watch{$file}++;
+    }
+
+    return if ( !keys %processing_watch );
+
+    while ( my ( $file, $count ) = each %processing_watch ) {
+        next unless ( $count >= 50 );
+
+ say "moving file due to process count!!\tcount:$count\tfile:$file";
+        ( my $oldName = $file ) =~ s/\.processing//;
+        rename $file, $oldName;
+        delete $processing_watch{$file};
+    }
 }
 
 ## ----------------------------------------------------- ##
