@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# Salvo2
+# Salvo
 use strict;
 use warnings;
 use feature 'say';
@@ -13,7 +13,7 @@ my $usage = <<"EOM";
 
 Synopsis:
 
-    Salvo - Slurm command and job launcher v 1.2.2
+    Salvo - Slurm command and job launcher v 1.2.3
 
 Description:
 
@@ -84,7 +84,7 @@ Additional help options:
 
     -help                   :   Prints this battleworn help message.
     -clean                  :   Will remove processing, launched, out, complete, cmds files created by Salvo.
-
+    -job_flush              :   Will flush all jobs associated with given project (launch.index required).
 
 Node information options:
 
@@ -112,6 +112,7 @@ GetOptions(
     "sinfo_idle|si",
     "node_info|ni",
     "min_mem_required|mm=i",
+    "job_flush",
     "help|h",
 );
 
@@ -139,6 +140,11 @@ if ( $salvo_opts{node_info} ) {
 if ( $salvo_opts{reserve_info} ) {
     my $salvo = Salvo->new( \%salvo_opts );
     $salvo->reserve_info;
+    exit(0);
+}
+if ( $salvo_opts{job_flush} ) {
+    my $salvo = Salvo->new( \%salvo_opts );
+    $salvo->node_flush;
     exit(0);
 }
 

@@ -205,7 +205,12 @@ sub BUILD {
     }
 
     ## Return if asking for reporting info.
-    if ( $args->{sinfo_idle} or $args->{squeue_me} or $args->{node_info} or $args->{reserve_info}) {
+    if (   $args->{sinfo_idle}
+        or $args->{squeue_me}
+        or $args->{node_info}
+        or $args->{reserve_info}
+        or $args->{job_flush} )
+    {
         return;
     }
 
@@ -318,7 +323,7 @@ sub node_flush {
     my $self = shift;
 
     open( my $INDX, '<', 'launch.index' )
-      or $self->WARN("Could not open launch.index file for node clean up.");
+      or $self->WARN("Could not open launch.index file for clean up.");
 
     my @ids;
     foreach my $launch (<$INDX>) {
