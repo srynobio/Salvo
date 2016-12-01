@@ -166,7 +166,7 @@ sub BUILD {
     my ( $self, $args ) = @_;
 
     $self->{SBATCH} = {
-        lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/sbatch',
+        #lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/sbatch',
         ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/sbatch',
         kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/sbatch',
         ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/sbatch',
@@ -174,27 +174,27 @@ sub BUILD {
 
     $self->{SQUEUE} = {
         ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/squeue',
-        lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/squeue',
+        #lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/squeue',
         kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/squeue',
         ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/squeue',
     };
 
     $self->{SINFO} = {
         ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/sinfo',
-        lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/sinfo',
+        #lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/sinfo',
         kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/sinfo',
         ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/sinfo',
     };
 
     $self->{SCANCEL} = {
         ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/scancel',
-        lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/scancel',
+        #lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/scancel',
         kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/scancel',
         ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/scancel',
     };
     $self->{UUFSCELL} = {
         ash       => 'ash.peaks',
-        lonepeak  => 'lonepeak.peaks',
+        #lonepeak  => 'lonepeak.peaks',
         kingspeak => 'kingspeak.peaks',
         ember     => 'ember.arches',
     };
