@@ -277,7 +277,7 @@ sub watch_processing {
     my $processing = $self->get_processing_files;
 
     foreach my $file ( @{$processing} ) {
- say "test::\@279\t$file";
+        say "test::\@279\t$file";
         $processing_watch{$file}++;
     }
 
@@ -286,7 +286,7 @@ sub watch_processing {
     while ( my ( $file, $count ) = each %processing_watch ) {
         next unless ( $count >= 50 );
 
- say "moving file due to process count!!\tcount:$count\tfile:$file";
+        say "moving file due to process count!!\tcount:$count\tfile:$file";
         ( my $oldName = $file ) =~ s/\.processing//;
         rename $file, $oldName;
         delete $processing_watch{$file};
@@ -344,8 +344,7 @@ sub _idle_launcher {
 ## ----------------------------------------------------- ##
 
 sub get_host_id {
-    my $self = shift;
-    ####my $host_id = `ifconfig eth0 | grep 'inet addr' | cut -d':' -f2 | awk '{print \$1}'`;
+    my $self    = shift;
     my $host_id = `hostname -i`;
     chomp $host_id;
     return $host_id;
