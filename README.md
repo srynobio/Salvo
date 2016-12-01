@@ -5,14 +5,14 @@
 
 ##Synopsis:
 
-    Salvo - Slurm command and job launcher v 1.2.2
+    Salvo - Slurm command and job launcher v 1.3.2
 
 ##Description:
 
     Designed to aid launching of Slurm jobs from a command list file.
     View github page <https://github.com/srynobio/Salvo> for more detailed description.
 
-    Version 1.2.1 now allows CHPC users to submit jobs to:
+    Version 1.3.1 now allows CHPC users to submit jobs to:
         kingspeak-guest
         ash-guest
         ember-guest
