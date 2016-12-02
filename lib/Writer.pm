@@ -35,12 +35,6 @@ sub dedicated_writer {
         $exclude = "#SBATCH -x $list";
     }
 
-    my $min_mem = '';
-    if ($self->min_mem_required) {
-        my $min = $self->min_mem_required;
-        $min_mem = "#SBATCH --mem=$min" . 'G';
-    }
-
     ## write out object
     my $runtime   = $self->runtime;
     my $nps       = $self->nodes_per_sbatch;
@@ -57,7 +51,6 @@ sub dedicated_writer {
 #SBATCH -J $jobname
 #SBATCH -o $slurm_out
 #SBATCH -e $slurm_err
-$min_mem
 $exclude
 
 # Working directory
@@ -114,12 +107,6 @@ sub mpi_writer {
         }
     }
 
-    my $min_mem = '';
-    if ( $self->min_mem_required ) {
-        my $min = $self->min_mem_required;
-        $min_mem = "#SBATCH --mem=$min" . 'G';
-    }
-
     my $extra_steps = '';
     if ( $self->additional_steps ) {
         $extra_steps = join( "\n", @{ $self->additional_steps } );
@@ -140,7 +127,6 @@ sub mpi_writer {
 #SBATCH -J $jobname
 #SBATCH -o $slurm_out
 #SBATCH -e $slurm_err
-$min_mem
 $exclude
 
 # Working directory
@@ -194,12 +180,6 @@ sub standard_writer {
         }
     }
 
-    my $min_mem = '';
-    if ( $self->min_mem_required ) {
-        my $min = $self->min_mem_required;
-        $min_mem = "#SBATCH --mem=$min" . 'G';
-    }
-
     my $extra_steps = '';
     if ( $self->additional_steps ) {
         $extra_steps = join( "\n", @{ $self->additional_steps } );
@@ -218,7 +198,6 @@ sub standard_writer {
 #SBATCH -p $partition
 #SBATCH -J $jobname
 #SBATCH -o $slurm_out
-$min_mem
 $exclude
 
 # Working directory
