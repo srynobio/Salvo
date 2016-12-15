@@ -80,15 +80,25 @@ sub idle {
     while ( my ( $node_name, $node_data ) = each %{$access} ) {
         next if ( $self->qlimit_limit($node_data) );
 
+        # collect cleared nodes.
+        my @cleared_nodes;
+        foreach my $detail ( keys %{$node_data} ) {
+            next if ( $detail =~ /(account_info|nodes_count)/ );
+            push @cleared_nodes, $detail;
+        }
+
         foreach my $detail ( keys %{$node_data} ) {
             next if ( $detail eq 'account_info' );
             next if ( $detail eq 'nodes_count' );
+
+            my $requested_node = shift @cleared_nodes;
 
             if ( $self->nodes_per_sbatch > 1 ) {
                 $self->mpi_writer( $node_data->{$detail}, $node_data );
             }
             else {
-                $self->standard_writer( $node_data->{$detail}, $node_data );
+                $self->standard_writer( $node_data->{$detail}, $node_data,
+                    $requested_node );
             }
         }
         $self->_idle_launcher($node_data);

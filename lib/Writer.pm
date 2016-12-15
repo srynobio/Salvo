@@ -156,7 +156,7 @@ EOM
 ## ----------------------------------------------------- ##
 
 sub standard_writer {
-    my ( $self, $node, $node_detail ) = @_;
+    my ( $self, $node, $node_detail, $requested_node) = @_;
 
     my $jobname   = $self->jobname . '-' . $self->random_id;
     my $slurm_out = $jobname . '.out';
@@ -198,6 +198,7 @@ sub standard_writer {
 #SBATCH -p $partition
 #SBATCH -J $jobname
 #SBATCH -o $slurm_out
+#SBATCH -w $requested_node
 $exclude
 
 # Working directory
