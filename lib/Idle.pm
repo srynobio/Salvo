@@ -141,15 +141,16 @@ sub flush_NotAvail {
     my $self = shift;
 
     foreach my $node ( keys %{ $self->{SQUEUE} } ) {
+        my $user = $self->user;
         my @cmd =
-          `$self->{SQUEUE}->{$node} -h -u $self->user --format=\"%A:%r\"`;
+          `$self->{SQUEUE}->{$node} -h -u $user --format=\"%A:%r\"`;
         chomp @cmd;
 
         my @remove = grep { /(QOSGrpNodeLimit|ReqNodeNotAvail)/ } @cmd;
 
         foreach my $kill (@remove) {
             my ( $jobid, $reason ) = split /:/, $kill;
-            system "$self->{SCANCEL}->{$node} -u $self->user $jobid";
+            system "$self->{SCANCEL}->{$node} -u $user $jobid";
         }
     }
 }
