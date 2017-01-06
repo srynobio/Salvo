@@ -6,7 +6,9 @@ use Moo::Role;
 use IO::Socket::INET;
 use Parallel::ForkManager;
 use File::Copy;
+
 our %processing_watch;
+our $access;
 
 ## ----------------------------------------------------- ##
 ##                    Attributes                         ##
@@ -59,54 +61,44 @@ sub idle {
     my $self = shift;
     $self->create_cmd_files;
 
-    ## this begins beacon as child.
+    ## begin beacon as child process.
     my $subprocess = 0;
     my $pm         = $self->subprocess;
-    while ( $subprocess < 1 ) {
-        $self->active(1);
-        $subprocess++;
-        $pm->start and next;
-        $self->start_beacon;
-        $pm->finish;
-
-        my $child = $pm->running_procs;
-        kill 'KILL', $child;
-        exit(0);
-    }
+#    while ( $subprocess < 1 ) {
+#        $self->active(1);
+#        $subprocess++;
+#        $pm->start and next;
+#        $self->start_beacon;
+#        $pm->finish;
+#
+#        my $child = $pm->running_procs;
+#        kill 'KILL', $child;
+#        exit(0);
+#    }
 
     ## nodes are collect and beacon.pl is launched.
   MORENODES:
-    my $access = $self->ican_access;
-    while ( my ( $node_name, $node_data ) = each %{$access} ) {
-        next if ( $self->qlimit_limit($node_data) );
+    $access = $self->ican_find;
+    my %cluster_count;
+    foreach my $avail ( keys %{$access} ) {
 
-        # collect cleared nodes.
-        my @cleared_nodes;
-        foreach my $detail ( keys %{$node_data} ) {
-            next if ( $detail =~ /(account_info|nodes_count)/ );
-            push @cleared_nodes, $detail;
+        my $cluster = $access->{$avail}->{CLUSTER};
+        $cluster_count{$cluster}++;
+        next if ( $cluster_count{$cluster} > $self->cluster_limit );
+
+        if ( $self->nodes_per_sbatch > 1 ) {
+            $self->mpi_writer( $access->{$avail} );
         }
-
-        foreach my $detail ( keys %{$node_data} ) {
-            next if ( $detail eq 'account_info' );
-            next if ( $detail eq 'nodes_count' );
-
-            my $requested_node = shift @cleared_nodes;
-
-            if ( $self->nodes_per_sbatch > 1 ) {
-                $self->mpi_writer( $node_data->{$detail}, $node_data );
-            }
-            else {
-                $self->standard_writer( $node_data->{$detail}, $node_data,
-                    $requested_node );
-            }
+        else {
+            $self->standard_writer( $access->{$avail} );
         }
-        $self->_idle_launcher($node_data);
+        $self->_idle_launcher( $access->{$avail} );
     }
 
-    ## let some processing happen.
-    $self->INFO("Processing...");
-    sleep 120;
+    ## start processing.
+    $self->INFO("Processing....");
+    $self->flush_NotAvail;
+    sleep 300;
 
   CHECKPROCESS:
     $self->INFO("Checking for unprocessed cmd files.");
@@ -116,15 +108,16 @@ sub idle {
 
     $self->INFO("Checking state of processing jobs.");
     $self->INFO("Flushing any unavailable jobs.");
-    sleep 300;
     $self->flush_NotAvail;
+    sleep 300;
+    $self->INFO("Checking for preempted jobs.");
     $self->check_preemption;
     if ( $self->get_processing_files ) {
         goto CHECKPROCESS;
     }
 
     ## Clean up all processes and children.
-    $self->INFO("All work processed, shutting down beacon.");
+    $self->INFO("All work processed, shutting down beacons.");
     $self->active(0);
     $self->INFO("Flushing any remaining beacons.");
     $self->node_flush;
@@ -210,17 +203,18 @@ sub check_preemption {
 ## ----------------------------------------------------- ##
 
 sub start_beacon {
-    my ( $self, $count ) = @_;
+    my $self = shift;
+    ###############my ( $self, $count ) = @_;
 
     # flush after every write
     $| = 1;
 
     my $socket = $self->socket;
     if ( !$socket ) {
-        $self->ERROR("Can not start server beacon connection error.");
+        $self->ERROR("Can not start receiver beacon, connection error.");
         exit(1);
     }
-    $self->INFO("Server beacon launched.");
+    $self->INFO("Receiver beacon started.");
 
     while ( $self->active ) {
         my $client = $socket->accept;
@@ -235,7 +229,10 @@ sub start_beacon {
         $client->recv( $node, 1024 );
         $self->INFO("Received beacon from node: $node");
 
-        my $cpu       = $self->node_cpu_details($node);
+        my $cpu = $access->{$node}->{CPU};
+######        my $cpu       = $self->node_cpu_details($node);
+
+        ####### this is where i can play with sending number of commands to node.
         my @cmd_files = $self->get_cmd_files;
 
         my $work = shift @cmd_files;
@@ -327,22 +324,6 @@ sub watch_processing {
 
 ## ----------------------------------------------------- ##
 
-sub qlimit_limit {
-    my ( $self, $node_data ) = @_;
-
-    my $squeue = sprintf(
-        "%s -u %s -h | wc -l",
-        $self->{SQUEUE}->{ $node_data->{account_info}->{CLUSTER} },
-        $self->user
-    );
-    my $number_running = `$squeue`;
-
-    ## If queue_limit is met return true
-    ( $number_running >= $self->queue_limit ) ? ( return 1 ) : ( return 0 );
-}
-
-## ----------------------------------------------------- ##
-
 sub _idle_launcher {
     my ( $self, $node_data ) = @_;
 
@@ -359,13 +340,13 @@ sub _idle_launcher {
         next unless ( $launch =~ /sbatch$/ );
 
         ## uufscell needed to keep env
-        my $cluster  = $node_data->{account_info}->{CLUSTER};
+        my $cluster  = $node_data->{CLUSTER};
         my $uufscell = $self->{UUFSCELL}->{$cluster};
 
         my $batch =
           sprintf( "%s --export=UUFSCELL=$uufscell %s >> launch.index",
-            $self->{SBATCH}->{ $node_data->{account_info}->{CLUSTER} },
-            $launch );
+            $self->{SBATCH}->{ $node_data->{CLUSTER} }, $launch
+        );
         system $batch;
 
         ## rename so not double launched.

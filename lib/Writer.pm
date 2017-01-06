@@ -81,7 +81,7 @@ EOM
 ## ----------------------------------------------------- ##
 
 sub mpi_writer {
-    my ( $self, $node, $node_detail ) = @_;
+    my ( $self, $node_detail ) = @_;
 
     my $jobname   = $self->jobname . '-' . $self->random_id;
     my $slurm_out = $jobname . '.out';
@@ -90,10 +90,9 @@ sub mpi_writer {
     my $nps       = $self->nodes_per_sbatch;
 
     # collect from info hash & object
-    my $account   = $node_detail->{account_info}->{ACCOUNT};
-    my $partition = $node_detail->{account_info}->{PARTITION};
-    $account   =~ s/_/-/g;
-    $partition =~ s/_/-/g;
+    my $account        = $node_detail->{ACCOUNT};
+    my $requested_node = $node_detail->{NODE};
+    my $partition      = $node_detail->{PARTITION};
     my $work_dir = $self->work_dir;
     my $runtime  = $self->runtime;
     my $user     = $self->user;
@@ -116,7 +115,6 @@ sub mpi_writer {
     my $localhost   = $self->localhost;
     my $localport   = $self->localport;
     my $beacon_opts = "$localhost $localport";
-    ##my $beacon_opts = "$localhost $localport 2> $jobname.error";
 
     my $sbatch = <<"EOM";
 #!/bin/bash
@@ -156,20 +154,19 @@ EOM
 ## ----------------------------------------------------- ##
 
 sub standard_writer {
-    my ( $self, $node, $node_detail, $requested_node) = @_;
+    my ( $self, $node_detail ) = @_;
 
     my $jobname   = $self->jobname . '-' . $self->random_id;
     my $slurm_out = $jobname . '.out';
     my $outfile   = $jobname . '.sbatch';
 
     # collect from info hash & object
-    my $account   = $node_detail->{account_info}->{ACCOUNT};
-    my $partition = $node_detail->{account_info}->{PARTITION};
-    $account   =~ s/_/-/g;
-    $partition =~ s/_/-/g;
-    my $work_dir = $self->work_dir;
-    my $runtime  = $self->runtime;
-    my $user     = $self->user;
+    my $account        = $node_detail->{ACCOUNT};
+    my $requested_node = $node_detail->{NODE};
+    my $partition      = $node_detail->{PARTITION};
+    my $work_dir       = $self->work_dir;
+    my $runtime        = $self->runtime;
+    my $user           = $self->user;
 
     my $exclude = '';
     if ( $self->exclude_nodes ) {
@@ -189,7 +186,6 @@ sub standard_writer {
     my $localhost   = $self->localhost;
     my $localport   = $self->localport;
     my $beacon_opts = "$localhost $localport";
-    ##my $beacon_opts = "$localhost $localport 2> $jobname.error";
 
     my $sbatch = <<"EOM";
 #!/bin/bash

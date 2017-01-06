@@ -79,6 +79,10 @@ Idle:
     -min_mem_required, -mm  :   Minimum memory required to use a given node (in Gigs).
     -concurrent             :   Will add "&" to the end of each command allowing concurrent runs.
     -hyperthread            :   Will read the number of available cpus and double value (should only be used on known hyperthreaded machines).
+    
+
+
+-hyperthread            :   Will double the cpu count on multi-threaded machines. 
 
 Additional help options:
 
@@ -103,7 +107,7 @@ GetOptions(
     "jobs_per_sbatch|jps=i",  "reserve_info|ri",
     "hyperthread",            "clean",
     "exclude_cluster|ec=s",   "runtime|r=s",
-    "nodes_per_sbatch|nps=i", "queue_limit|ql=i",
+    "nodes_per_sbatch|nps=i", 
     "additional_steps|as=s",  "exclude_nodes|en=s",
     "work_dir|wd=s", "user|u=s",
     "jobname|j=s", 
@@ -114,8 +118,17 @@ GetOptions(
     "min_mem_required|mm=i",
     "job_flush",
     "help|h",
+
+    ## new
+    "min_cpu_required|mc=i",
+    "cluster_limit=i",
+
 );
 
+    #"queue_limit|ql=i",
+    #
+    #
+ 
 if ( $salvo_opts{help} ) {
     say $usage;
     exit(0);

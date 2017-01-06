@@ -23,7 +23,6 @@ my $socket = new IO::Socket::INET(
     Proto    => 'tcp',
     Type     => SOCK_STREAM,
 ) or die "ERROR in Socket Creation : $!\n";
-
 say "beacon ready for work.";
 
 ## collect node data.

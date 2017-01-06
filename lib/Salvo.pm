@@ -105,11 +105,11 @@ has nodes_per_sbatch => (
     },
 );
 
-has queue_limit => (
+has cluster_limit => (
     is      => 'ro',
     default => sub {
         my $self = shift;
-        return $self->{queue_limit} || 50;
+        return $self->{cluster_limit} || 100;
     },
 );
 
@@ -117,7 +117,15 @@ has min_mem_required => (
     is => 'ro',
     default => sub {
         my $self = shift;
-        return $self->{min_mem_required} || undef;
+        return $self->{min_mem_required} || 0
+    },
+);
+
+has min_cpu_required => (
+    is => 'ro',
+    default => sub {
+        my $self = shift;
+        return $self->{min_cpu_required} || 0;
     },
 );
 
@@ -248,6 +256,8 @@ sub fire {
 
 ## ----------------------------------------------------- ##
 
+## used in Dedicated mode.
+
 sub get_cmds {
     my $self = shift;
 
@@ -323,7 +333,7 @@ sub node_flush {
     my $self = shift;
 
     open( my $INDX, '<', 'launch.index' )
-      or $self->WARN("Could not open launch.index file for clean up.");
+      or $self->ERROR("Could not open launch.index file for clean up.");
 
     my @ids;
     foreach my $launch (<$INDX>) {
@@ -342,118 +352,115 @@ sub node_flush {
 
 ## ----------------------------------------------------- ##
 
-sub ican_access {
+sub ican_find {
     my $self = shift;
 
-    my $useable_nodes = $self->_ican_find;
-    my $user          = $self->user;
-
+    ## get sacctmgr info to get account and partition names.
+    my $user = $self->user;
     my $access =
-      `sacctmgr list assoc format=account%30,cluster%30,qos%30 user=$user`;
+      `sacctmgr list assoc format=account%30,qos%30,cluster%30 user=$user`;
     my @node_access = split /\n/, $access;
     my @node_data = splice( @node_access, 2, $#node_access );
 
-    my %aval;
-    foreach my $id (@node_data) {
-        chomp $id;
+    my %partition_lookup;
+    foreach my $info (@node_data) {
+        chomp $info;
+        my @info_parts = split /\s+/, $info;
 
-        my ( undef, $account, $cluster, $partition ) = split /\s+/, $id;
-        next if ( $cluster eq $self->exclude_cluster );
+        if ( $info_parts[2] =~ /\,/ ) {
+            my @multi_qos = split /\,/, $info_parts[2];
+            $info_parts[2] = $multi_qos[0];
+        }
+        $partition_lookup{ $info_parts[2] } = {
+            QOS     => $info_parts[1],
+            CLUSTER => $info_parts[3],
+        };
+    }
 
-        ## remove hyphens
-        $account   =~ s/\-/_/g;
-        $partition =~ s/\-/_/g;
+    my %node_list;
+    foreach my $cluster ( keys %{ $self->{SINFO} } ) {
+        my @info = `$self->{SINFO}->{$cluster} -h --summarize -N -O all`;
 
-        my @partition_cache;
-        if ( $partition =~ /\,/ ) {
-            my @each_parti = split /\,/, $partition;
+        foreach my $node (@info) {
+            chomp $node;
+            my @split_array = split /\|/, $node;
 
-            foreach my $qos (@each_parti) {
+            ## clean up data.
+            my @node_array = map {
+                $_ =~ s|^\s+||g;
+                $_ =~ s|\s+$||g;
+                $_;
+            } @split_array;
 
-                push @{ $aval{$qos} },
-                  {
-                    CLUSTER   => $cluster,
-                    ACCOUNT   => $account,
-                    PARTITION => $qos,
-                  };
+            # skip unless wanted partition type
+            next unless ( $node_array[31] =~ /(guest|freecycle)/ );
+            next unless ( $node_array[31] !~ /owner/ );
+
+            ## set cpu by name;
+            my $cpu = $node_array[1];
+
+            ## set memory to gigs.
+            my $memory = $node_array[8] / 1000;
+
+            ## flag if hyperthreadable
+            my $hyperthread = 0;
+            if ( $node_array[38] > 1 && $self->hyperthread ) {
+                $cpu         = ( $node_array[1] * 2 );
+                $hyperthread = 1;
             }
-        }
-        else {
-            push @{ $aval{$partition} },
-              {
-                CLUSTER   => $cluster,
+
+            ## get hostname info
+            my $account;
+            my $cluster;
+            my $partition;
+
+            if ( $partition_lookup{ $node_array[31] } ) {
+                $partition = $node_array[31];
+                $account   = $partition_lookup{ $node_array[31] }->{QOS};
+                $cluster   = $partition_lookup{ $node_array[31] }->{CLUSTER};
+            }
+            else {
+                $self->WARN("$node_array[31] not found in lookup");
+            }
+
+            $node_list{ $node_array[9] } = {
+                CPU       => $cpu,
+                MEMORY    => $memory,
+                NODE      => $node_array[9],
+                SOCKETS   => $node_array[36],
+                CORES     => $node_array[37],
+                THREADS   => $node_array[38],
                 ACCOUNT   => $account,
-                PARTITION => $partition,
-              };
-        }
-    }
-
-    foreach my $found ( keys %{$useable_nodes} ) {
-        chomp $found;
-        ## remove node from list with no user access.
-        if ( !$aval{$found} ) {
-            delete $useable_nodes->{$found};
-            next;
-        }
-
-        ## add number of nodes and account info
-        my $number_of_nodes = scalar keys %{ $useable_nodes->{$found} };
-        $useable_nodes->{$found}{nodes_count}  = $number_of_nodes;
-        $useable_nodes->{$found}{account_info} = $aval{$found}->[0];
-    }
-    return $useable_nodes;
-}
-
-## ----------------------------------------------------- ##
-
-sub _ican_find {
-    my $self = shift;
-
-    my %found_nodes;
-    foreach my $node ( keys %{ $self->{SBATCH} } ) {
-        chomp $node;
-
-        my $cmd =
-          "$self->{SINFO}->{$node} --format=\"%n %c %m %t %P\" | grep idle";
-        my @s_info = `$cmd`;
-        chomp @s_info;
-        next if ( !@s_info );
-
-        foreach my $line (@s_info) {
-            chomp $line;
-            my @node_details = split /\s+/, $line;
-
-            ## remove hyphen
-            $node_details[-1] =~ s/\-/_/g;
-
-            ## make node master table.
-            ## change memory into GB.
-            $found_nodes{ $node_details[-1] }{ $node_details[0] } = {
-                NODE   => $node_details[0],
-                CPUS   => $node_details[1],
-                MEMORY => int( $node_details[2] / 1000 ),
+                PARTITION => $node_array[31],
+                CLUSTER   => $cluster,
+                HYPER     => $hyperthread,
             };
         }
     }
 
-    ## remove node that dont meet memory requirements if set.
-    my $removed = 0;
-    my $mim_memory = $self->min_mem_required;
-    if ($mim_memory) {
-        foreach my $cluster ( keys %found_nodes ) {
-            foreach my $node ( keys %{ $found_nodes{$cluster} } ) {
-                my $memory = $found_nodes{$cluster}->{$node}->{MEMORY};
-                if ( $memory < $mim_memory ) {
-                    $removed++;
-                    delete $found_nodes{$cluster}->{$node};
-                }
-            }
+    ## Remove nodes if req are not met.
+    my $removed    = 0;
+    my $min_memory = $self->min_mem_required;
+    my $min_cpu    = $self->min_cpu_required;
+    foreach my $element ( keys %node_list ) {
+        if ( $node_list{$element}->{MEMORY} < $min_memory ) {
+            delete $node_list{$element};
+            $removed++;
+            next;
+        }
+        if ( $node_list{$element}->{CPU} < $min_cpu ) {
+            delete $node_list{$element};
+            $removed++;
+            next;
         }
     }
-    $self->INFO("$removed nodes were removed for not meeting memory requirements.");
-    return \%found_nodes;
+    $self->INFO(
+        "$removed nodes were removed for not meeting memory or cpu requirements."
+    );
+    return \%node_list;
 }
 
 ## ----------------------------------------------------- ##
 
 1;
+
