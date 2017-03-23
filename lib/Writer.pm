@@ -207,7 +207,8 @@ $extra_steps
 # clean up before start
 /scratch/ucgd/lustre/ugpuser/shell/slurm_job_prerun
 
-beacon.pl $beacon_opts
+/uufs/chpc.utah.edu/common/home/u0413537/Salvo/beacon.pl $beacon_opts
+#######beacon.pl $beacon_opts
 
 # clean up after finish.
 /scratch/ucgd/lustre/ugpuser/shell/slurm_job_postrun

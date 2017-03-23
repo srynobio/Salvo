@@ -4,7 +4,6 @@ use warnings;
 use feature 'say';
 use Moo;
 use File::Copy;
-use IPC::Cmd qw[can_run run run_forked];
 
 with qw {
   Reporter
@@ -37,7 +36,7 @@ has jobs_per_sbatch => (
     is      => 'ro',
     default => sub {
         my $self = shift;
-        return $self->{jobs_per_sbatch} || 1;
+        return $self->{jobs_per_sbatch} || 0;
     },
 );
 
@@ -77,7 +76,7 @@ has exclude_cluster => (
     is      => 'ro',
     default => sub {
         my $self = shift;
-        return $self->{exclude_cluster} || 'NULL';
+        return $self->{exclude_cluster} || '';
     },
 );
 
@@ -105,24 +104,16 @@ has nodes_per_sbatch => (
     },
 );
 
-has cluster_limit => (
+has min_mem_required => (
     is      => 'ro',
     default => sub {
         my $self = shift;
-        return $self->{cluster_limit} || 100;
-    },
-);
-
-has min_mem_required => (
-    is => 'ro',
-    default => sub {
-        my $self = shift;
-        return $self->{min_mem_required} || 0
+        return $self->{min_mem_required} || 0;
     },
 );
 
 has min_cpu_required => (
-    is => 'ro',
+    is      => 'ro',
     default => sub {
         my $self = shift;
         return $self->{min_cpu_required} || 0;
@@ -174,6 +165,7 @@ sub BUILD {
     my ( $self, $args ) = @_;
 
     $self->{SBATCH} = {
+
         #lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/sbatch',
         ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/sbatch',
         kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/sbatch',
@@ -181,27 +173,31 @@ sub BUILD {
     };
 
     $self->{SQUEUE} = {
-        ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/squeue',
+        ash => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/squeue',
+
         #lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/squeue',
         kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/squeue',
         ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/squeue',
     };
 
     $self->{SINFO} = {
-        ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/sinfo',
+        ash => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/sinfo',
+
         #lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/sinfo',
         kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/sinfo',
         ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/sinfo',
     };
 
     $self->{SCANCEL} = {
-        ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/scancel',
+        ash => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/scancel',
+
         #lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/scancel',
         kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/scancel',
         ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/scancel',
     };
     $self->{UUFSCELL} = {
-        ash       => 'ash.peaks',
+        ash => 'ash.peaks',
+
         #lonepeak  => 'lonepeak.peaks',
         kingspeak => 'kingspeak.peaks',
         ember     => 'ember.arches',
@@ -240,6 +236,8 @@ sub fire {
     my $self = shift;
     my $mode = $self->mode;
 
+    $self->get_cmds_from_file;
+
     if ( $mode eq 'dedicated' ) {
         $self->dedicated;
     }
@@ -258,7 +256,28 @@ sub fire {
 
 ## used in Dedicated mode.
 
-sub get_cmds {
+#sub get_cmds {
+#    my $self = shift;
+#
+#    my $cf = $self->command_file;
+#    open( my $IN, '<', $cf );
+#
+#    my @cmd_stack;
+#    foreach my $cmd (<$IN>) {
+#        chomp $cmd;
+#        if ( $self->concurrent ) {
+#            $cmd = "$cmd &";
+#        }
+#        push @cmd_stack, $cmd;
+#    }
+#    close $IN;
+#
+#    return \@cmd_stack;
+#}
+
+## ----------------------------------------------------- ##
+
+sub get_cmds_from_file {
     my $self = shift;
 
     my $cf = $self->command_file;
@@ -274,36 +293,7 @@ sub get_cmds {
     }
     close $IN;
 
-    return \@cmd_stack;
-}
-
-## ----------------------------------------------------- ##
-
-sub create_cmd_files {
-    my $self = shift;
-
-    my $cf = $self->command_file;
-    open( my $IN, '<', $cf );
-
-    my @cmd_stack;
-    foreach my $cmd (<$IN>) {
-        chomp $cmd;
-        push @cmd_stack, $cmd;
-    }
-    close $IN;
-
-    my @commands;
-    push @commands, [ splice @cmd_stack, 0, $self->jobs_per_sbatch ]
-      while @cmd_stack;
-
-    my $id;
-    foreach my $stack (@commands) {
-        $id++;
-        my $file = $self->jobname . ".work.$id.cmds";
-        open( my $FH, '>', $file );
-        map { say $FH $_ } @{$stack};
-        close $FH;
-    }
+    $self->{commands} = ( \@cmd_stack );
 }
 
 ## ----------------------------------------------------- ##
@@ -378,9 +368,44 @@ sub ican_find {
     }
 
     my %node_list;
+    my %freeNodes;
     foreach my $cluster ( keys %{ $self->{SINFO} } ) {
-        my @info = `$self->{SINFO}->{$cluster} -h --summarize -N -O all`;
+        my @info = `$self->{SINFO}->{$cluster} -h -s -N -O all`;
 
+        ## make an idle lookup hash.
+        my @idle = `$self->{SINFO}->{$cluster} -h -t IDLE -s`;
+        foreach my $i (@idle) {
+            chomp $i;
+            next unless ( $i =~ /(freecycle|guest)/ );
+            my @nodelist = split /\s+/, $i;
+
+            next if ( !$nodelist[4] );
+
+            if ( $nodelist[4] =~ /\[/ ) {
+                $nodelist[4] =~ /^(.*)\[(.*)\]/;
+                my $cluster  = $1;
+                my $eachNode = $2;
+
+                my @nodes = split /\,/, $eachNode;
+
+                foreach my $node (@nodes) {
+                    if ( $node =~ /-/ ) {
+                        my ( $start, $end ) = split /-/, $node;
+                        for ( $start .. $end ) {
+                            $freeNodes{"$cluster$_"}++;
+                        }
+                    }
+                    else {
+                        $freeNodes{"$cluster$node"}++;
+                    }
+                }
+            }
+            else {
+                $freeNodes{ $nodelist[4] }++;
+            }
+        }
+
+        ## make hash of all aval nodes.
         foreach my $node (@info) {
             chomp $node;
             my @split_array = split /\|/, $node;
@@ -393,19 +418,19 @@ sub ican_find {
             } @split_array;
 
             # skip unless wanted partition type
-            next unless ( $node_array[31] =~ /(guest|freecycle)/ );
-            next unless ( $node_array[31] !~ /owner/ );
+            next unless ( $node_array[34] =~ /(guest|freecycle)/ );
+            next unless ( $node_array[34] !~ /owner/ );
 
             ## set cpu by name;
-            my $cpu = $node_array[1];
+            my $cpu = $node_array[2];
 
             ## set memory to gigs.
-            my $memory = $node_array[8] / 1000;
+            my $memory = $node_array[9] / 1000;
 
             ## flag if hyperthreadable
             my $hyperthread = 0;
-            if ( $node_array[38] > 1 && $self->hyperthread ) {
-                $cpu         = ( $node_array[1] * 2 );
+            if ( $node_array[40] > 1 && $self->hyperthread ) {
+                $cpu         = ( $node_array[2] * 2 );
                 $hyperthread = 1;
             }
 
@@ -414,27 +439,34 @@ sub ican_find {
             my $cluster;
             my $partition;
 
-            if ( $partition_lookup{ $node_array[31] } ) {
-                $partition = $node_array[31];
-                $account   = $partition_lookup{ $node_array[31] }->{QOS};
-                $cluster   = $partition_lookup{ $node_array[31] }->{CLUSTER};
+            if ( $partition_lookup{ $node_array[34] } ) {
+                $partition = $node_array[34];
+                $account   = $partition_lookup{ $node_array[34] }->{QOS};
+                $cluster   = $partition_lookup{ $node_array[34] }->{CLUSTER};
             }
             else {
                 $self->WARN("$node_array[31] not found in lookup");
             }
 
-            $node_list{ $node_array[9] } = {
+            $node_list{ $node_array[10] } = {
                 CPU       => $cpu,
                 MEMORY    => $memory,
-                NODE      => $node_array[9],
-                SOCKETS   => $node_array[36],
-                CORES     => $node_array[37],
-                THREADS   => $node_array[38],
+                NODE      => $node_array[10],
+                SOCKETS   => $node_array[38],
+                CORES     => $node_array[39],
+                THREADS   => $node_array[40],
                 ACCOUNT   => $account,
-                PARTITION => $node_array[31],
+                PARTITION => $node_array[34],
                 CLUSTER   => $cluster,
                 HYPER     => $hyperthread,
             };
+        }
+    }
+
+    ## delete non idle nodes.
+    foreach my $allNode ( keys %node_list ) {
+        if ( !$freeNodes{$allNode} ) {
+            delete $node_list{$allNode};
         }
     }
 
@@ -453,9 +485,15 @@ sub ican_find {
             $removed++;
             next;
         }
+        my $ex_cluster = $self->exclude_cluster;
+        if ( $node_list{$element}->{CLUSTER} eq $ex_cluster ) {
+            delete $node_list{$element};
+            $removed++;
+            next;
+        }
     }
     $self->INFO(
-        "$removed nodes were removed for not meeting memory or cpu requirements."
+        "$removed nodes removed for exclusion or not meeting memory or cpu requirements."
     );
     return \%node_list;
 }

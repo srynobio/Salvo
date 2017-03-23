@@ -121,7 +121,6 @@ GetOptions(
 
     ## new
     "min_cpu_required|mc=i",
-    "cluster_limit=i",
 
 );
 

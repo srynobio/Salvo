@@ -18,7 +18,7 @@ sub report_node_info {
     say "Partition\tAvailableNodes\tTotalCPUs\tNodeList";
     say "---------\t--------------\t---------\t--------";
 
-    my $accs_nodes = $self->ican_access;
+    my $accs_nodes = $self->ican_find;
     if ( !keys %{$accs_nodes} ) {
         $self->ERROR("No idle node available to review.");
     }

@@ -75,6 +75,8 @@ sub process_cmds {
 
         $pm->start and next;
 
+        say "[COMMAND] : $cmd";
+
         my ( $success, $error_message, $full_buf, $stdout_buf, $stderr_buf ) =
           run( command => $cmd, verbose => 0 );
 
