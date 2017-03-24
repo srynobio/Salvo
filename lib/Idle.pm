@@ -6,10 +6,9 @@ use Moo::Role;
 use IO::Socket::INET;
 use Parallel::ForkManager;
 use File::Copy;
+use Fcntl qw(:flock SEEK_END);
 
-use Data::Dumper;
-
-#our %processing_watch;
+## main node collection hash.
 our $access;
 
 ## ----------------------------------------------------- ##
@@ -83,7 +82,7 @@ sub idle {
 
     ## check if node are available and report.
     if ( !keys %{$access} ) {
-        $self->WARN("CHPC running at 100%. No Nodes available.");
+        $self->WARN("CHPC running at 100%, or no nodes accessible.");
         say "Will check for available nodes in 5 mins...";
         sleep 300;
         goto MORENODES;
@@ -106,19 +105,21 @@ sub idle {
     $self->flush_NotAvail;
 
   CHECKPROCESS:
-    $self->INFO("Checking for unprocessed cmd files.");
-    if (  @{$self->{commands}} ) {
+    $self->INFO("Checking for unprocessed commands.");
+    $self->INFO("Flushing any unavailable jobs.");
+    ## check and launch more beacons if work to be done.
+    if ( $self->are_cmds_remaining ) {
+        $self->flush_NotAvail;
         goto MORENODES;
     }
 
-    $self->INFO("Checking state of processing jobs.");
-    $self->INFO("Flushing any unavailable jobs.");
-    $self->flush_NotAvail;
-    sleep 300;
-
     $self->INFO("Checking for preempted jobs.");
-    $self->check_preemption;
+    if ( $self->are_jobs_preempted ) {
+        goto CHECKPROCESS;
+    }
+
     if ( $self->have_processing_files ) {
+        sleep 300;
         goto CHECKPROCESS;
     }
 
@@ -171,16 +172,6 @@ sub start_beacon {
         ## exit if out of commands
         if ( $step eq 'die' ) {
             $client->send($step);
-
-##### 
-            #will now shift commmands correctly need to work on control now.
-
-
-            ## if everything is done stop running.
-            if ( $self->processing_complete ) {
-####???                $self->node_flush;
-                last;
-            }
             next;
         }
 
@@ -196,31 +187,78 @@ sub start_beacon {
 
 sub command_writer {
     my ( $self, $cpu ) = @_;
-    return 'die' if ( !@{ $self->{commands} } );
 
-    my @commands;
-    if ( $self->jobs_per_sbatch ) {
-        @commands = @{ $self->{commands} }[ 0 .. $self->jobs_per_sbatch ];
-        for ( 1 .. $self->jobs_per_sbatch ) {
-            shift @{ $self->{commands} };
+    my $stack_number;
+    ( $self->jobs_per_sbatch )
+      ? ( $stack_number = $self->jobs_per_sbatch )
+      : ( $stack_number = $cpu );
+
+    open( my $FILE, '<', 'salvo.command.tmp' );
+    flock( $FILE, 2 );
+    my @command_stack;
+    foreach my $cmd (<$FILE>) {
+        chomp $cmd;
+        push @command_stack, $cmd;
+    }
+    return 'die' if ( !@command_stack );
+    close $FILE;
+
+    ## just get needed number of commands.
+    my @to_run;
+    my @write;
+    my $count = 0;
+    foreach my $cmd (@command_stack) {
+        chomp $cmd;
+        $count++;
+        if ( $count <= $stack_number ) {
+            push @to_run, $cmd;
+        }
+        else {
+            push @write, $cmd;
         }
     }
-    else {
-        @commands = @{ $self->{commands} }[ 0 .. $cpu ];
-        for ( 1 .. $cpu ) {
-            shift @{ $self->{commands} };
-        }
+    return 'die' if ( !@to_run );
+
+    ## print remaining commands back to file
+    open( my $OUT, '>', 'salvo.command.tmp' );
+    flock( $OUT, 2 );
+    foreach my $remain (@write) {
+        say $OUT $remain;
     }
+    close $OUT;
 
-    ## second check for commands.
-    return 'die' if ( !@commands );
-
+    ## write the to_run commands.
     my $file = $self->random_file_generator;
     open( my $FH, '>', $file );
-    map { say $FH $_ } @commands if @commands;
+    foreach my $i (@to_run) {
+        say $FH $i;
+    }
     close $FH;
 
     return $file;
+}
+
+## ----------------------------------------------------- ##
+
+sub are_cmds_remaining {
+    my $self = shift;
+
+    open( my $FH, '<', 'salvo.command.tmp' );
+    flock( $FH, 2 );
+
+    my $cmd_count = 0;
+    foreach my $cmd (<$FH>) {
+        chomp $cmd;
+        if ( length $cmd > 1 ) {
+            $cmd_count++;
+        }
+    }
+    if ( $cmd_count > 1 ) {
+        return 1;
+    }
+    else {
+        return 0;
+    }
 }
 
 ## ----------------------------------------------------- ##
@@ -243,56 +281,54 @@ sub flush_NotAvail {
 }
 
 ## ----------------------------------------------------- ##
-#
-#sub check_preemption {
-#    my $self = shift;
-#
-#    my $out_name  = $self->jobname . "*out";
-#    my @out_files = glob "$out_name";
-#
-#    my @reruns;
-#    my @outfiles;
-#    foreach my $out (@out_files) {
-#        chomp $out;
-#        open( my $IN, '<', $out );
-#
-#        my $reprocess;
-#        foreach my $line (<$IN>) {
-#            chomp $line;
-#
-#            if ( $line =~ /^Processing/ ) {
-#                ( undef, $reprocess ) = split /:/, $line;
-#            }
-#
-#            if ( $line =~ /PREEMPTION/ ) {
-#                if ( !$reprocess ) {
-#                    $self->watch_processing;
-#                    next;
-#                }
-#                push @reruns,   $reprocess;
-#                push @outfiles, $out;
-#                undef $reprocess;
-#            }
-#            if ( $line =~ /TIME/ ) {
-#                say "Job $reprocess : $out cancelled due to time limit.";
-#            }
-#        }
-#        close $IN;
-#    }
-#
-#    ## rename back to cmd to be picked up.
-#    foreach my $file (@reruns) {
-#        next if ( -e "$file.processing.complete" );
-#        my $new_file = "$file.processing";
-#        if ( !-d $new_file ) {
-#            $self->WARN(
-#                "Preemption or timed out job: $file found, renaming to launch again."
-#            );
-#            rename $new_file, $file;
-#        }
-#    }
-#    unlink @outfiles;
-#}
+
+sub are_jobs_preempted {
+    my $self = shift;
+
+    my $out_name  = $self->jobname . "*out";
+    my @out_files = glob "$out_name";
+
+    my @reruns;
+    foreach my $out (@out_files) {
+        chomp $out;
+        open( my $IN, '<', $out );
+
+        my $needs_reprocessing = 0;
+        foreach my $line (<$IN>) {
+            chomp $line;
+
+            if ( $line =~ /PREEMPTION/ ) {
+                $needs_reprocessing++;
+                next;
+            }
+            if ( $needs_reprocessing > 1 ) {
+                if ( $line =~ /^[COMMAND]:/ ) {
+                    my @command = split /:/, 2;
+                    push @reruns, $command[1];
+                }
+            }
+            if ( $line =~ /TIME/ ) {
+                say "Job $out cancelled due to time limit.";
+            }
+        }
+        close $IN;
+    }
+
+    ## if no reruns found return.
+    if ( !@reruns ) {
+        return 0;
+    }
+
+    ## rename back to cmd to be picked up.
+    open( my $FILE, '>>', 'salvo.command.tmp' );
+    flock( $FILE, 2 );
+    foreach my $cmd (@reruns) {
+        $self->WARN("Preemption or timed out cmd: $cmd found, relaunching.");
+        say $FILE, $cmd;
+    }
+    close $FILE;
+    return 1;
+}
 
 ## ----------------------------------------------------- ##
 
@@ -336,36 +372,9 @@ sub processing_complete {
 }
 
 ## ----------------------------------------------------- ##
-#
-#sub watch_processing {
-#    my $self       = shift;
-#    my $processing = $self->have_processing_files;
-#
-#    foreach my $file ( @{$processing} ) {
-#        say "test::\@279\t$file";
-#        $processing_watch{$file}++;
-#    }
-#
-#    return if ( !keys %processing_watch );
-#
-#    while ( my ( $file, $count ) = each %processing_watch ) {
-#        next unless ( $count >= 50 );
-#
-#        say "moving file due to process count!!\tcount:$count\tfile:$file";
-#        ( my $oldName = $file ) =~ s/\.processing//;
-#        rename $file, $oldName;
-#        delete $processing_watch{$file};
-#    }
-#}
-
-## ----------------------------------------------------- ##
 
 sub idle_launcher {
     my ( $self, $node_data ) = @_;
-
-
-print Dumper 'idle_launch', $node_data, $node_data->{CLUSTER};
-
 
     ## create output file
     open( my $OUT, '>>', 'launch.index' );

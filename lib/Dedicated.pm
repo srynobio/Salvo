@@ -9,6 +9,14 @@ use IO::Dir;
 ##                    Attributes                         ##
 ## ----------------------------------------------------- ##
 
+has queue_limit => (
+    is      => 'rw',
+    default => sub {
+        my $self = shift;
+        return $self->{queue_limit} || 10;
+    },
+);
+
 ## ----------------------------------------------------- ##
 ##                     Methods                           ##
 ## ----------------------------------------------------- ##
@@ -18,8 +26,13 @@ sub dedicated {
     my $cmds = $self->get_cmds;
 
     # split base on jps, then create sbatch scripts.
+    my $jps;
+    ( $self->jobs_per_sbatch )
+      ? ( $jps = $self->jobs_per_sbatch )
+      : ( $jps = 1 );
+
     my @stack;
-    push @stack, [ splice @{$cmds}, 0, $self->jobs_per_sbatch ] while @{$cmds};
+    push @stack, [ splice @{$cmds}, 0, $jps ] while @{$cmds};
 
     foreach my $cmd (@stack) {
         chomp $cmd;

@@ -13,26 +13,26 @@ my $usage = <<"EOM";
 
 Synopsis:
 
-    Salvo - Slurm command and job launcher v 1.2.3
+    Salvo - Slurm command and job launcher v 1.3.3
 
 Description:
 
     Designed to aid launching of Slurm jobs from a command list file.
     View github page <https://github.com/srynobio/Salvo> for more detailed description.
 
-    Version 1.3.1 now allows CHPC users to submit jobs to:
-    kingspeak-guest
-    ash-guest
-    ember-guest
-    lonepeak-guest : (lonepeak does not have access to UCGD lustre space).
+    Version 1.3.3 now allows CHPC users to submit jobs to:
+    * kingspeak
+    * ash
+    * ember
+    * lonepeak-guest : no access to UCGD lustre space so this cluster is turned off.
 
     Salvo can be launched in two distinct modes: dedicated & idle.  
     Options and differences are given below.
 
 
-Dedicated:
+ ----- Dedicated -----
 
-    Dedicated required options:
+Dedicated required options:
 
     -command_file, -cf      :   File containing list of commands to run. <FILE>
     -account, -a            :   CHPC account name. e.g. yandell-em. <STRING>
@@ -41,56 +41,50 @@ Dedicated:
     -mode, -m               :   Launch mode. e.g.  dedicated
 
 
-    Additional options:
+Additional options:
 
     -user, -u               :   Will add a user to run as. <STRING> (default \$ENV{USER})
     -runtime, -r            :   Time to allow each job to run on node. <STRING> (default 5:00:00)
     -nodes_per_sbatch, -nps :   Number of nodes to run per sbatch launch <INT> (default 1)
     -jobs_per_sbatch, -jps  :   Number of jobs to run per sbatch launch. <INT> (default 1)
-    -queue_limit, -ql       :   Number of jobs queue/run per cluster at one time. <INT> (default 1)
+    -queue_limit, -ql       :   Number of jobs queue/run per cluster at one time. <INT> (default 10)
     -additional_steps, -as  :   Additional step to add to each sbatch job <STRING> (comma separated)
     -work_dir, -wd          :   This option will add the directory to work out of to each sbatch job. <STRING> (default current)
     -exclude_nodes, -en     :   Will exclude submission to selected nodes <STRING> e.g. kp[001-095,168-195,200-227]
     -jobname, -j            :   Jobnames to give to a current launch. <STRING> (default salvo)
-    -min_mem_required, -mm  :   Minimum memory required to use a given node (in Gigs).
     -concurrent             :   Will add "&" to the end of each command allowing concurrent runs.
 
 
-Idle:
+ ----- Idle -----
 
-    Idle required options:
+Idle required options:
 
     -command_file, -cf      :   File containing list of commands to run. <FILE>
     -mode, -m               :   Launch mode. e.g. idle
 
-
-    Additional options:
+Additional options:
 
     -user, -u               :   Will add a user to run as. <STRING> (default \$ENV{USER})
     -runtime, -r            :   Time to allow each job to run on node. <STRING> (default 5:00:00)
     -nodes_per_sbatch, -nps :   Number of nodes to run per sbatch launch <INT> (default 1)
-    -jobs_per_sbatch, -jps  :   Number of jobs to run per sbatch launch. <INT> (default 1)
-    -queue_limit, -ql       :   Number of jobs queue/run per cluster at one time. <INT> (default 50)
+    -jobs_per_sbatch, -jps  :   Number of jobs to run per sbatch launch. <INT> (default number of discovered CPUs).
     -additional_steps, -as  :   Additional step to add to each sbatch job <STRING> (comma separated)
     -work_dir, -wd          :   This option will add the directory to work out of to each sbatch job. <STRING> (default current)
     -exclude_cluster, -ec   :   Will exclude submission to select cluster. <STRING> e.g. lonepeak
     -exclude_nodes, -en     :   Will exclude submission to selected nodes <STRING> e.g. kp[001-095,168-195,200-227]
     -jobname, -j            :   Jobname to give to current launch. <STRING> (default salvo)
-    -min_mem_required, -mm  :   Minimum memory required to use a given node (in Gigs).
+    -min_mem_required, -mm  :   Minimum memory required per node (in Gigs).
+    -min_cpu_required, -mc  :   Minimum cpu per node <INT> (default 0);
     -concurrent             :   Will add "&" to the end of each command allowing concurrent runs.
-    -hyperthread            :   Will read the number of available cpus and double value (should only be used on known hyperthreaded machines).
-    
+    -hyperthread            :   Will read the number of available cpus and double value (please consider memory when using this option.).
 
-
--hyperthread            :   Will double the cpu count on multi-threaded machines. 
-
-Additional help options:
+ ----- Additional help options -----
 
     -help                   :   Prints this battleworn help message.
     -clean                  :   Will remove processing, launched, out, complete, cmds files created by Salvo.
     -job_flush              :   Will flush all jobs associated with given project (launch.index required).
 
-Node information options:
+ ----- Node information options -----
 
     -squeue_me, -sm         : Will output all current runing jobs across all clusters.
     -sinfo_idle, -si        : Will output all currently idle nodes across all clusters.
@@ -113,21 +107,15 @@ GetOptions(
     "jobname|j=s", 
     "concurrent",
     "squeue_me|sm", 
+    "queue_limit|ql=i",
     "sinfo_idle|si",
     "node_info|ni",
     "min_mem_required|mm=i",
+    "min_cpu_required|mc=i",
     "job_flush",
     "help|h",
-
-    ## new
-    "min_cpu_required|mc=i",
-
 );
 
-    #"queue_limit|ql=i",
-    #
-    #
- 
 if ( $salvo_opts{help} ) {
     say $usage;
     exit(0);
@@ -162,7 +150,7 @@ if ( $salvo_opts{job_flush} ) {
 
 ## Clean up option.
 if ( $salvo_opts{clean} ) {
-    my @salvo_files = glob q(*processing *launched *out *complete *cmds *error *err);
+    my @salvo_files = glob q(*tmp *processing *launched *out *complete *cmds *error *err);
     unlink @salvo_files if @salvo_files;
     say "Cleaned up!";
     exit(0);

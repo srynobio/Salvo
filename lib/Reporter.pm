@@ -18,32 +18,39 @@ sub report_node_info {
     say "Partition\tAvailableNodes\tTotalCPUs\tNodeList";
     say "---------\t--------------\t---------\t--------";
 
-    my $accs_nodes = $self->ican_find;
-    if ( !keys %{$accs_nodes} ) {
+    my $access = $self->ican_find;
+    if ( !keys %{$access} ) {
         $self->ERROR("No idle node available to review.");
+    }
+
+    my %reporter;
+    while ( my ( $node, $info ) = each %{$access} ) {
+        next if ( !$info->{CLUSTER} );
+        push @{ $reporter{ $info->{CLUSTER} } },
+          {
+            CPU => $info->{CPU},
+            ID  => $info->{NODE}
+          };
     }
 
     my $total_node;
     my $total_cpus;
-    foreach my $partn ( keys %{$accs_nodes} ) {
+    foreach my $env ( keys %reporter ) {
 
-        my ( @ids, $cpus, $node_count );
-        foreach my $node ( keys %{ $accs_nodes->{$partn} } ) {
-            next if ( $node eq 'account_info' );
-
-            if ( $node eq 'nodes_count' ) {
-                $node_count = $accs_nodes->{$partn}->{nodes_count};
-                next;
-            }
-            push @ids, $accs_nodes->{$partn}->{$node}->{NODE};
-            $cpus += $accs_nodes->{$partn}->{$node}->{CPUS};
+        my $cpus = 0;
+        my ( @ids, $node_count );
+        foreach my $i ( @{ $reporter{$env} } ) {
+            $node_count++;
+            push @ids, $i->{ID};
+            $cpus += $i->{CPU};
         }
+
+        my $format = sprintf( "%-20s\t%s\t%s\t%s",
+            $env, $node_count, $cpus, join( ',', @ids ) );
+        say $format;
         $total_node += $node_count;
         $total_cpus += $cpus;
 
-        my $format = sprintf( "%-20s\t%s\t%s\t%s",
-            $partn, $node_count, $cpus, join( ',', @ids ) );
-        say $format;
     }
     say "[Total AvailableNodes: $total_node]";
     say "[Total AvailableCPUs: $total_cpus]";

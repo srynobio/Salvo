@@ -9,6 +9,7 @@ use Sys::Hostname;
 use Parallel::ForkManager;
 use Cwd 'abs_path';
 use File::Copy;
+use Fcntl qw(:flock SEEK_END);
 
 # flush after every write
 $| = 1;
@@ -74,8 +75,7 @@ sub process_cmds {
         $cmd_count++;
 
         $pm->start and next;
-
-        say "[COMMAND] : $cmd";
+        say "[COMMAND]:$cmd";
 
         my ( $success, $error_message, $full_buf, $stdout_buf, $stderr_buf ) =
           run( command => $cmd, verbose => 0 );
@@ -83,10 +83,10 @@ sub process_cmds {
         if ( !$success ) {
             say "error results: $error_message";
             map { say "Error Buffer: $_" } @$full_buf;
-            need_rerun( $cmd, $cmd_count );
+            need_rerun( $cmd );
+            ###############need_rerun( $cmd, $cmd_count );
             $error_count++;
         }
-
         $pm->finish($cmd);
     }
     $pm->wait_all_children;
@@ -102,8 +102,9 @@ sub process_cmds {
 ## ---------------------------------------- ##
 
 sub need_rerun {
-    my ( $cmd, $cmd_count ) = @_;
-    open( my $FH, '>', "rerun.work.$node.$cmd_count.cmds" );
+    my $cmd = shift;
+    open( my $FH, '>>', 'salvo.command.tmp');
+    flock($FH, 2);
     say $FH $cmd;
     close $FH;
 }

@@ -236,12 +236,11 @@ sub fire {
     my $self = shift;
     my $mode = $self->mode;
 
-    $self->get_cmds_from_file;
-
     if ( $mode eq 'dedicated' ) {
         $self->dedicated;
     }
     elsif ( $mode eq 'idle' ) {
+        $self->get_cmds_from_file;
         $self->idle;
     }
     else {
@@ -256,28 +255,7 @@ sub fire {
 
 ## used in Dedicated mode.
 
-#sub get_cmds {
-#    my $self = shift;
-#
-#    my $cf = $self->command_file;
-#    open( my $IN, '<', $cf );
-#
-#    my @cmd_stack;
-#    foreach my $cmd (<$IN>) {
-#        chomp $cmd;
-#        if ( $self->concurrent ) {
-#            $cmd = "$cmd &";
-#        }
-#        push @cmd_stack, $cmd;
-#    }
-#    close $IN;
-#
-#    return \@cmd_stack;
-#}
-
-## ----------------------------------------------------- ##
-
-sub get_cmds_from_file {
+sub get_cmds {
     my $self = shift;
 
     my $cf = $self->command_file;
@@ -293,7 +271,27 @@ sub get_cmds_from_file {
     }
     close $IN;
 
-    $self->{commands} = ( \@cmd_stack );
+    return \@cmd_stack;
+}
+
+## ----------------------------------------------------- ##
+
+sub get_cmds_from_file {
+    my $self = shift;
+
+    my $cf = $self->command_file;
+    open( my $IN,  '<', $cf );
+    open( my $OUT, '>', 'salvo.command.tmp' );
+
+    my @cmd_stack;
+    foreach my $cmd (<$IN>) {
+        chomp $cmd;
+        if ( $self->concurrent ) {
+            $cmd = "$cmd &";
+        }
+        say $OUT $cmd;
+    }
+    close $IN;
 }
 
 ## ----------------------------------------------------- ##
@@ -444,9 +442,6 @@ sub ican_find {
                 $account   = $partition_lookup{ $node_array[34] }->{QOS};
                 $cluster   = $partition_lookup{ $node_array[34] }->{CLUSTER};
             }
-            else {
-                $self->WARN("$node_array[31] not found in lookup");
-            }
 
             $node_list{ $node_array[10] } = {
                 CPU       => $cpu,
@@ -485,8 +480,9 @@ sub ican_find {
             $removed++;
             next;
         }
-        my $ex_cluster = $self->exclude_cluster;
-        if ( $node_list{$element}->{CLUSTER} eq $ex_cluster ) {
+        if (   $self->exclude_cluster
+            && $node_list{$element}->{CLUSTER} eq $self->exclude_cluster )
+        {
             delete $node_list{$element};
             $removed++;
             next;
