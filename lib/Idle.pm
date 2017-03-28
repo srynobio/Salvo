@@ -392,6 +392,10 @@ sub idle_launcher {
         my $cluster  = $node_data->{CLUSTER};
         my $uufscell = $self->{UUFSCELL}->{$cluster};
 
+        unless ( $cluster && $uufscell ) {
+            $self->WARN("No values found for cluster: $cluster and uufscell: $uufscell");
+        }
+
         my $batch =
           sprintf( "%s --export=UUFSCELL=$uufscell %s >> launch.index",
             $self->{SBATCH}->{ $node_data->{CLUSTER} }, $launch );

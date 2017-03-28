@@ -228,6 +228,14 @@ sub BUILD {
     if ( !-e $args->{command_file} ) {
         $self->ERROR("Command file given could not be found.");
     }
+
+    ## check for required in dedicated mode.
+    if ( $args->{mode} eq 'dedicated' ) {
+        unless ( $args->{account} && $args->{partition} && $args->{cluster} ) {
+            $self->ERROR(
+                "dedicated mode requires account, partition and cluster info.");
+        }
+    }
 }
 
 ## ----------------------------------------------------- ##
