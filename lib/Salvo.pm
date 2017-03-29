@@ -425,6 +425,7 @@ sub ican_find {
 
             # skip unless wanted partition type
             next unless ( $node_array[34] =~ /(guest|freecycle)/ );
+            next if ( $node_array[34] =~ /gpu/ );
             next unless ( $node_array[34] !~ /owner/ );
 
             ## set cpu by name;
