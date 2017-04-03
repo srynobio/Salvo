@@ -60,13 +60,14 @@ has active => ( is => 'rw' );
 
 sub idle {
     my $self = shift;
-
-  MORENODES:
-    $access = $self->ican_find;
-
+    
     ## beacon child launch section.
     my $subprocess = 0;
-    my $pm         = $self->subprocess;
+    my $pm =  $self->subprocess;
+
+  MORENODES:
+    $self->WARN("Fetching more nodes...");
+    $access = $self->ican_find;
 
     while ( $subprocess < 1 ) {
         $self->active(1);
