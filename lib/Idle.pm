@@ -60,10 +60,10 @@ has active => ( is => 'rw' );
 
 sub idle {
     my $self = shift;
-    
+
     ## beacon child launch section.
     my $subprocess = 0;
-    my $pm =  $self->subprocess;
+    my $pm         = $self->subprocess;
 
   MORENODES:
     $self->WARN("Fetching more nodes...");
@@ -83,7 +83,7 @@ sub idle {
 
     ## check if node are available and report.
     if ( !keys %{$access} ) {
-        $self->WARN("CHPC running at 100%, or no nodes accessible.");
+        $self->INFO("CHPC running at 100%, or no nodes accessible.");
         say "Will check for available nodes in 5 mins...";
         sleep 300;
         goto MORENODES;
@@ -120,7 +120,7 @@ sub idle {
     }
 
     if ( $self->have_processing_files ) {
-        sleep 300;
+        sleep 60;
         goto CHECKPROCESS;
     }
 
@@ -335,7 +335,7 @@ sub are_jobs_preempted {
 
 sub random_file_generator {
     my $self     = shift;
-    my $id       = int( rand(10000) );
+    my $id       = int( rand(99000) );
     my $filename = $self->jobname . ".work.$id.cmds";
     if ( -e $filename ) {
         $self->random_file_generator;
@@ -350,7 +350,42 @@ sub have_processing_files {
 
     my $proc_name     = "*.cmds.processing";
     my @process_files = glob "$proc_name";
-    (@process_files) ? ( return 1 ) : ( return undef );
+    chomp @process_files;
+
+    ## no file just leave.
+    return undef if ( !@process_files );
+
+    ## get the state
+    my $active_state = '';
+    if (@process_files) {
+        $active_state = $self->_check_processing_activity;
+    }
+
+    # collect cmds of issues exist.
+    my @cmds;
+    if ( $active_state eq 'EMPTY' ) {
+        foreach my $files (@process_files) {
+            chomp $files;
+            open( my $PF, '<', $files );
+            foreach my $cmd (<$PF>) {
+                push @cmds, $cmd;
+            }
+            close $PF;
+        }
+    }
+
+    ## rewrite the command back to tmp.
+    if (@cmds) {
+        open( my $FH, '>>', 'salvo.command.tmp' );
+        flock( $FH, 2 );
+        foreach my $cmd (@cmds) {
+            say $FH $cmd;
+        }
+    }
+
+    ## get rid of unneed files.
+    unlink @process_files;
+    return 1;
 }
 
 ## ----------------------------------------------------- ##
@@ -385,7 +420,7 @@ sub idle_launcher {
         say $self->ERROR("No sbatch scripts found to launch.");
     }
 
-  LINE: foreach my $launch (@sbatchs) {
+    foreach my $launch (@sbatchs) {
         chomp $launch;
         next unless ( $launch =~ /sbatch$/ );
 
@@ -394,7 +429,9 @@ sub idle_launcher {
         my $uufscell = $self->{UUFSCELL}->{$cluster};
 
         unless ( $cluster && $uufscell ) {
-            $self->WARN("No values found for cluster: $cluster and uufscell: $uufscell");
+            $self->WARN(
+                "No values found for cluster: $cluster and uufscell: $uufscell"
+            );
         }
 
         my $batch =
@@ -425,6 +462,43 @@ sub get_port_range {
     my $lower       = $port_ranges[2];
     my $upper       = $port_ranges[3];
     return $lower, $upper;
+}
+
+## ----------------------------------------------------- ##
+
+sub _check_processing_activity {
+    my $self = shift;
+    my $user = $self->user;
+
+    $self->INFO("Checking activity of running jobs.");
+
+    open( my $FH, '<', 'launch.index' );
+
+    my $running = 0;
+    my $waiting = 0;
+    foreach my $launched (<$FH>) {
+        my @report = split /\s+/, $launched;
+        foreach my $cluster ( keys %{ $self->{SQUEUE} } ) {
+            my $cmd = printf(
+                "%s -u %s -j %s -h -o \"%t\"",
+                $self->{SQUEUE}->{$cluster},
+                $user, $report[-1]
+            );
+            my $result = `$cmd`;
+            if ( $result =~ /^R/ ) {
+                $running++;
+            }
+            if ( $result =~ /^PD/ ) {
+                $waiting++;
+            }
+        }
+    }
+
+    if ( $running == 0 && $waiting == 0 ) {
+        $self->INFO("Process files but no jobs are running or waiting.");
+        $self->INFO("Reseting processing jobs.");
+        return 'EMPTY';
+    }
 }
 
 ## ----------------------------------------------------- ##

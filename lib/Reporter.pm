@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use feature 'say';
 use Moo::Role;
+use Fcntl qw(:flock SEEK_END);
 
 ## ----------------------------------------------------- ##
 ##                    Attributes                         ##
