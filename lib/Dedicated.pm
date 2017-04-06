@@ -9,11 +9,11 @@ use IO::Dir;
 ##                    Attributes                         ##
 ## ----------------------------------------------------- ##
 
-has queue_limit => (
+has sbatch_limit => (
     is      => 'rw',
     default => sub {
         my $self = shift;
-        return $self->{queue_limit} || 10;
+        return $self->{sbatch_limit} || 50;
     },
 );
 
@@ -64,7 +64,7 @@ sub dedicated_launcher {
         chomp $launch;
         next unless ( $launch =~ /sbatch$/ );
 
-        if ( $running >= $self->queue_limit ) {
+        if ( $running >= $self->sbatch_limit ) {
             my $status = $self->_jobs_status();
             if ( $status eq 'add' ) {
                 $running--;
@@ -97,7 +97,7 @@ sub _jobs_status {
     );
     my $state = `$squeue`;
 
-    if ( $state >= $self->queue_limit ) {
+    if ( $state >= $self->sbatch_limit ) {
         return 'wait';
     }
     else {

@@ -168,7 +168,7 @@ sub start_beacon {
         my $cpu = $access->{$node}->{CPU};
 
         ## write command file based on request or number of cpus.
-        my $step = $self->command_writer($cpu);
+        my ($step, $processing_number) = $self->command_writer($cpu);
 
         ## exit if out of commands
         if ( $step eq 'die' ) {
@@ -177,7 +177,7 @@ sub start_beacon {
         }
 
         say "sending file $step to $node.";
-        my $message = "$step:$cpu";
+        my $message = "$step:$processing_number";
         rename $step, "$step.processing";
         $client->send($message);
     }
@@ -189,10 +189,10 @@ sub start_beacon {
 sub command_writer {
     my ( $self, $cpu ) = @_;
 
-    my $stack_number;
+    my $processing_number;
     ( $self->jobs_per_sbatch )
-      ? ( $stack_number = $self->jobs_per_sbatch )
-      : ( $stack_number = $cpu );
+      ? ( $processing_number = $self->jobs_per_sbatch )
+      : ( $processing_number = $cpu );
 
     open( my $FILE, '<', 'salvo.command.tmp' );
     flock( $FILE, 2 );
@@ -211,7 +211,7 @@ sub command_writer {
     foreach my $cmd (@command_stack) {
         chomp $cmd;
         $count++;
-        if ( $count <= $stack_number ) {
+        if ( $count <= $processing_number ) {
             push @to_run, $cmd;
         }
         else {
@@ -236,7 +236,7 @@ sub command_writer {
     }
     close $FH;
 
-    return $file;
+    return $file, $processing_number;
 }
 
 ## ----------------------------------------------------- ##
@@ -480,7 +480,7 @@ sub _check_processing_activity {
         my @report = split /\s+/, $launched;
         foreach my $cluster ( keys %{ $self->{SQUEUE} } ) {
             my $cmd = printf(
-                "%s -u %s -j %s -h -o \"%t\"",
+                "%s -u %s -j %s -h -o \"%%t\"",
                 $self->{SQUEUE}->{$cluster},
                 $user, $report[-1]
             );
