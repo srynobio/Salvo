@@ -166,9 +166,10 @@ sub start_beacon {
 
         ## get cpu info from access hash.
         my $cpu = $access->{$node}->{CPU};
+        next if ( !$cpu );
 
         ## write command file based on request or number of cpus.
-        my ($step, $processing_number) = $self->command_writer($cpu);
+        my ( $step, $processing_number ) = $self->command_writer($cpu);
 
         ## exit if out of commands
         if ( $step eq 'die' ) {
@@ -202,13 +203,14 @@ sub command_writer {
         chomp $cmd;
         push @command_stack, $cmd;
     }
-    return 'die' if ( !@command_stack );
+    return 'die' if ( scalar @command_stack < 1 );
     close $FILE;
 
     ## just get needed number of commands.
     my @to_run;
     my @write;
     my $count = 0;
+
     foreach my $cmd (@command_stack) {
         chomp $cmd;
         $count++;
@@ -237,7 +239,6 @@ sub command_writer {
         say $FH $i;
     }
     close $FH;
-
     return $file, $processing_number;
 }
 
@@ -483,11 +484,13 @@ sub _check_processing_activity {
     foreach my $launched (<$FH>) {
         my @report = split /\s+/, $launched;
         foreach my $cluster ( keys %{ $self->{SQUEUE} } ) {
-            my $cmd = printf(
+            my $cmd = sprintf(
                 "%s -u %s -j %s -h -o \"%%t\"",
                 $self->{SQUEUE}->{$cluster},
                 $user, $report[-1]
             );
+
+            say "processing_activity CMD: $cmd";
 
             $self->INFO("running command $cmd");
 

@@ -484,6 +484,10 @@ sub ican_find {
             $removed++;
             next;
         }
+        if ( ! $node_list{$element} ) {
+            say $self->INFO("node $node_list{$element}->{NODE} does not have cpu info.");
+            delete $node_list{$element};
+        }
         if ( $node_list{$element}->{CPU} < $min_cpu ) {
             delete $node_list{$element};
             $removed++;

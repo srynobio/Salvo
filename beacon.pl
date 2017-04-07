@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use feature 'say';
 use IO::Socket::INET;
-use IPC::Cmd 'run';
+use IPC::Open3;
 use Sys::Hostname;
 use Parallel::ForkManager;
 use Cwd 'abs_path';
@@ -61,7 +61,7 @@ sub process_cmds {
 
     my $pm = Parallel::ForkManager->new($cpu);
 
-    open( my $FH,  '<',  $abs_file );
+    open( my $FH, '<', $abs_file );
 
     say "------ Node info -------";
     say "JOBID: $ENV{SLURM_JOBID}";
@@ -77,14 +77,16 @@ sub process_cmds {
         $pm->start and next;
         say "[COMMAND]:$cmd";
 
-        my ( $success, $error_message, $full_buf, $stdout_buf, $stderr_buf ) =
-          run( command => $cmd, verbose => 0 );
+        local ( *IN, *OUT, *ERROR );
+        my $pid = open3( \*IN, \*OUT, \*ERROR, $cmd );
 
-        if ( !$success ) {
-            say "error results: $error_message";
-            map { say "Error Buffer: $_" } @$full_buf;
-            need_rerun( $cmd );
-            ###############need_rerun( $cmd, $cmd_count );
+        ## collect out and error.
+        my @error = <ERROR>;
+        my @out   = <OUT>;
+
+        if (@error) {
+            say "[INFO] Error running command: $cmd";
+            need_rerun($cmd);
             $error_count++;
         }
         $pm->finish($cmd);
@@ -93,7 +95,7 @@ sub process_cmds {
 
     if ( !$error_count ) {
         my $new_file = "$abs_file.complete";
-        if ( ! -d $new_file ) {
+        if ( !-d $new_file ) {
             rename $abs_file, $new_file;
         }
     }
@@ -103,8 +105,8 @@ sub process_cmds {
 
 sub need_rerun {
     my $cmd = shift;
-    open( my $FH, '>>', 'salvo.command.tmp');
-    flock($FH, 2);
+    open( my $FH, '>>', 'salvo.command.tmp' );
+    flock( $FH, 2 );
     chomp $cmd;
     say $FH $cmd;
     close $FH;
