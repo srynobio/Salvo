@@ -196,6 +196,7 @@ sub command_writer {
 
     open( my $FILE, '<', 'salvo.command.tmp' );
     flock( $FILE, 2 );
+
     my @command_stack;
     foreach my $cmd (<$FILE>) {
         chomp $cmd;
@@ -224,6 +225,7 @@ sub command_writer {
     open( my $OUT, '>', 'salvo.command.tmp' );
     flock( $OUT, 2 );
     foreach my $remain (@write) {
+        chomp $remain;
         say $OUT $remain;
     }
     close $OUT;
@@ -324,6 +326,7 @@ sub are_jobs_preempted {
     open( my $FILE, '>>', 'salvo.command.tmp' );
     flock( $FILE, 2 );
     foreach my $cmd (@reruns) {
+        chomp $cmd;
         $self->WARN("Preemption or timed out cmd: $cmd found, relaunching.");
         say $FILE, $cmd;
     }
@@ -379,6 +382,7 @@ sub have_processing_files {
         open( my $FH, '>>', 'salvo.command.tmp' );
         flock( $FH, 2 );
         foreach my $cmd (@cmds) {
+            chomp $cmd;
             say $FH $cmd;
         }
     }
@@ -484,6 +488,9 @@ sub _check_processing_activity {
                 $self->{SQUEUE}->{$cluster},
                 $user, $report[-1]
             );
+
+            $self->INFO("running command $cmd");
+
             my $result = `$cmd`;
             if ( $result =~ /^R/ ) {
                 $running++;

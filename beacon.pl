@@ -105,6 +105,7 @@ sub need_rerun {
     my $cmd = shift;
     open( my $FH, '>>', 'salvo.command.tmp');
     flock($FH, 2);
+    chomp $cmd;
     say $FH $cmd;
     close $FH;
 }
