@@ -209,6 +209,7 @@ $extra_steps
 
 beacon.pl $beacon_opts
 
+wait
 
 # clean up after finish.
 /scratch/ucgd/lustre/ugpuser/shell/slurm_job_postrun
