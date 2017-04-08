@@ -86,7 +86,7 @@ sub process_cmds {
 
         if (@error) {
             say "[INFO] Error running command: $cmd";
-            map { "ERROR MSG: $_ } @error;
+            map { "ERROR MSG: $_" } @error;
             need_rerun($cmd);
             $error_count++;
         }
