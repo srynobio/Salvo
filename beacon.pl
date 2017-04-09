@@ -36,7 +36,7 @@ $socket->recv( $message, 1024 );
 my ( $cmd_file, $cpu ) = split /:/, $message;
 
 if ( !$cmd_file ) {
-    say "Error receiving command file! Got: $message";
+    say "cmd file not give, possibly out of commands to run.";
     $socket->close;
     exit(1);
 }
@@ -89,6 +89,10 @@ sub process_cmds {
             map { "ERROR MSG: $_" } @error;
             need_rerun($cmd);
             $error_count++;
+        }
+        waitpid($pid, 0);
+        if ($?) {
+            say "[INFO] cmd $cmd exited with a status of $?.";
         }
         $pm->finish($cmd);
     }
