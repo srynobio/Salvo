@@ -150,7 +150,7 @@ if ( $salvo_opts{job_flush} ) {
 
 ## Clean up option.
 if ( $salvo_opts{clean} ) {
-    my @salvo_files = glob q(*tmp *processing *launched *out *complete *cmds *error *err);
+    my @salvo_files = glob q(tmp.salvo.log *tmp *processing *launched *out *complete *cmds *error *err);
     unlink @salvo_files if @salvo_files;
     say "Cleaned up!";
     exit(0);

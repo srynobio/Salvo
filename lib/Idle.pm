@@ -119,8 +119,7 @@ sub idle {
         goto CHECKPROCESS;
     }
 
-    if ( $self->have_processing_files ) {
-        sleep 60;
+    if ( $self->are_files_processing ) {
         goto CHECKPROCESS;
     }
 
@@ -349,7 +348,7 @@ sub random_file_generator {
 
 ## ----------------------------------------------------- ##
 
-sub have_processing_files {
+sub are_files_processing {
     my $self = shift;
 
     my $proc_name     = "*.cmds.processing";
@@ -357,17 +356,21 @@ sub have_processing_files {
     chomp @process_files;
 
     ## no file just leave.
-    return undef if ( !@process_files );
+    return 0 if ( !@process_files );
 
     ## get the state
     my $active_state = '';
     if (@process_files) {
-        $active_state = $self->_check_processing_activity;
+        $active_state = $self->_check_processing_state;
     }
 
+    ## return if running.
+    return 1 if ( $active_state eq 'ACTIVE' );
+
     # collect cmds of issues exist.
+    # empty = no running or waiting but work
     my @cmds;
-    if ( $active_state eq 'EMPTY' ) {
+    if ( $active_state eq 'RESET' ) {
         foreach my $files (@process_files) {
             chomp $files;
             open( my $PF, '<', $files );
@@ -386,10 +389,9 @@ sub have_processing_files {
             chomp $cmd;
             say $FH $cmd;
         }
+        ## get rid of unneed files.
+        unlink @process_files;
     }
-
-    ## get rid of unneed files.
-    unlink @process_files;
     return 1;
 }
 
@@ -471,7 +473,7 @@ sub get_port_range {
 
 ## ----------------------------------------------------- ##
 
-sub _check_processing_activity {
+sub _check_processing_state {
     my $self = shift;
     my $user = $self->user;
 
@@ -483,13 +485,12 @@ sub _check_processing_activity {
     my $waiting = 0;
     foreach my $launched (<$FH>) {
         my @report = split /\s+/, $launched;
-        my $cmd = sprintf(
-            "%s -u %s -j %s -h -o \"%%t\" -M all",
-            'squeue', $user, $report[-1]
-        );
-        my @result = `$cmd`;
+        my $cmd = sprintf( "%s -u %s -j %s -h -o \"%%t\" -M all",
+            'squeue', $user, $report[-1] );
+        my @result = `$cmd 2> tmp.salvo.log`;
 
         foreach my $reply (@result) {
+            next if ( $reply =~ /slurm_load_jobs error:/ );
             if ( $reply =~ /^R/ ) {
                 $running++;
             }
@@ -499,13 +500,15 @@ sub _check_processing_activity {
         }
     }
 
-    ##################
-    say "running jobs: $running\twaiting jobs: $waiting";
-
-    if ( $running == 0 && $waiting == 0 ) {
+    if ( $running == 0 and $waiting == 0 ) {
         $self->INFO("Process files but no jobs are running or waiting.");
         $self->INFO("Reseting processing jobs.");
-        return 'EMPTY';
+        return 'RESET';
+    }
+
+    if ( $running > 1 or $waiting > 1 ) {
+        $self->INFO("Jobs currently running or waiting for resources.");
+        return "ACTIVE";
     }
 }
 
