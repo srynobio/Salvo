@@ -483,26 +483,24 @@ sub _check_processing_activity {
     my $waiting = 0;
     foreach my $launched (<$FH>) {
         my @report = split /\s+/, $launched;
-        foreach my $cluster ( keys %{ $self->{SQUEUE} } ) {
-            my $cmd = sprintf(
-                "%s -u %s -j %s -h -o \"%%t\"",
-                $self->{SQUEUE}->{$cluster},
-                $user, $report[-1]
-            );
+        my $cmd = sprintf(
+            "%s -u %s -j %s -h -o \"%%t\" -M all",
+            'squeue', $user, $report[-1]
+        );
+        my @result = `$cmd`;
 
-            say "processing_activity CMD: $cmd";
-
-            $self->INFO("running command $cmd");
-
-            my $result = `$cmd`;
-            if ( $result =~ /^R/ ) {
+        foreach my $reply (@result) {
+            if ( $reply =~ /^R/ ) {
                 $running++;
             }
-            if ( $result =~ /^PD/ ) {
+            if ( $reply =~ /^PD/ ) {
                 $waiting++;
             }
         }
     }
+
+    ##################
+    say "running jobs: $running\twaiting jobs: $waiting";
 
     if ( $running == 0 && $waiting == 0 ) {
         $self->INFO("Process files but no jobs are running or waiting.");
