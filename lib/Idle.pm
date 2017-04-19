@@ -300,7 +300,7 @@ sub are_jobs_preempted {
         foreach my $line (<$IN>) {
             chomp $line;
 
-            if ( $line =~ /PREEMPTION/ ) {
+            if ( $line =~ /(PREEMPTION|CANCELLED)/ ) {
                 $needs_reprocessing++;
                 next;
             }

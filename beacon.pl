@@ -84,13 +84,19 @@ sub process_cmds {
         my @error = <ERROR>;
         my @out   = <OUT>;
 
+        my $fails = 0;
         if (@error) {
-            say "[INFO] Error running command: $cmd";
-            map { "ERROR MSG: $_" } @error;
-            need_rerun($cmd);
-            $error_count++;
+            say "[INFO] Checking error messages";
+            foreach my $fail (@error) {
+                if ( $fail =~ /error/i ) {
+                    say "[INFO] following error message found: $fail";
+                    $fails++;
+                    $error_count++;
+                }
+            }
         }
-        waitpid($pid, 0);
+        need_rerun($cmd) if ( $fails > 0 );
+        waitpid( $pid, 0 );
         if ($?) {
             say "[INFO] cmd $cmd exited with a status of $?.";
         }
