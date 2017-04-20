@@ -27,35 +27,35 @@ Dedicated launch mode allows you to specify that you want to launch SLURM jobs t
 
 Dedicated required options:
 
-    -command_file, -cf      :   File containing list of commands to run. <FILE>
-    -account, -a            :   CHPC account name. e.g. owner-guest. <STRING>
-    -partition, -p          :   CHPC partition to run jobs on. e.g. ember-guest <STRING>
-    -cluster, -c            :   Cluster to launch to. e.g. ash <STRING>
-    -mode, -m 				:   Launch mode. e.g.  dedicated
+    -command_file, -cf  :   File containing list of commands to run. <FILE>
+    -account, -a        :   CHPC account name. e.g. owner-guest. <STRING>
+    -partition, -p      :   CHPC partition to run jobs on. e.g. ember-guest <STRING>
+    -cluster, -c        :   Cluster to launch to. e.g. ash <STRING>
+    -mode, -m           :   Launch mode. e.g.  dedicated
 
 
 Additional options:
 
-	-user, -u 				:	Will add a user to run as. <STRING> (default $ENV{USER})
+    -user,u                 :	Will add a user to run as. <STRING> (default $ENV{USER})
     -runtime, -r            :   Time to allow each job to run on node. <STRING> (default 5:00:00)
     -nodes_per_sbatch, -nps :   Number of nodes to run per sbatch launch <INT> (default 1)
     -jobs_per_sbatch, -jps  :   Number of jobs to run per sbatch launch. <INT> (default 1)
     -queue_limit, -ql       :   Number of jobs queue/run per cluster at one time. <INT> (default 50)
     -additional_steps, -as  :   Additional step to add to each sbatch job <STRING> (comma separated)
     -work_dir, -wd          :   This option will add the directory to work out of to each sbatch job. <STRING> (default current)
-    -exclude_nodes, -en		:   Will exclude submission to selected nodes <STRING> e.g. kp[001-095,168-195,200-227]
-    -jobname, -j			:   Jobnames to give to a current launch. <STRING> (default salvo)
-    -concurrent			    :	Will add "&" to the end of each command allowing concurrent runs.
+    -exclude_nodes, -en     :   Will exclude submission to selected nodes <STRING> e.g. kp[001-095,168-195,200-227]
+    -jobname, -j            :   Jobnames to give to a current launch. <STRING> (default salvo)
+    -concurrent             :	Will add "&" to the end of each command allowing concurrent runs.
 
 
-###Idle:
+### Idle:
 
 Idle launch mode allows users to utilize all idle nodes across all available clusters.  It executes this by creating smaller subsets of the original command file and passes them to each node as they become accessible.  For each cluster environment you have access to, individual beacons are deployed via sbatch, then beacons request work via a TCP socket once the node becomes available.  Command file names are modified as they process (\*cmds->\*processing->\*complete).  Preempted jobs are renamed (\*cmds) and relaunched.  Using idle mode allows users to saturate the CHPC environment and quickly process work.  Setting the jps option in different ways allows for greater distribution of command jobs (see infomation section below).
 
 Idle required options:
 
     -command_file, -cf      :   File containing list of commands to run. <FILE>
-    -mode, -m 				:   Launch mode. e.g. idle
+    -mode, -m               :   Launch mode. e.g. idle
 
 
 Additional options:
@@ -67,20 +67,20 @@ Additional options:
     -additional_steps, -as  :   Additional step to add to each sbatch job <STRING> (comma separated)
     -work_dir, -wd          :   This option will add the directory to work out of to each sbatch job. <STRING> (default current)
     -exclude_cluster, -ec   :	Will exclude submission to select cluster. <STRING> e.g. lonepeak
-    -exclude_nodes, -en	 	:   Will exclude submission to selected nodes <STRING> e.g. kp[001-095,168-195,200-227]
-    -jobname, -j			:   Jobname to give to current launch. <STRING> (default salvo)
+    -exclude_nodes, -en     :   Will exclude submission to selected nodes <STRING> e.g. kp[001-095,168-195,200-227]
+    -jobname, -j            :   Jobname to give to current launch. <STRING> (default salvo)
     -min_mem_required, -mm  :   Minimum memory required per node (in Gigs).
     -min_cpu_required, -mc  :   Minimum cpu per node <INT>
     -hyperthread            :   Will read the number of avaliable cpus and double value (will only work on known hyperthreaded machines).
 
 
-###Additional help options:
+### Additional help options:
         
     -help                   :   Prints this battleworn help message.
-    -clean		            :   Will remove processing, launched, out, complete, cmds files created by Salvo.
+    -clean                  :   Will remove processing, launched, out, complete, cmds files created by Salvo.
 
 
-###Node information options:
+### Node information options:
 
     -squeue_me, -sm			: Will output all current runing jobs across all clusters.
     -sinfo_idle, -si		: Will output all currently idle nodes across all clusters.
@@ -88,7 +88,7 @@ Additional options:
 
 
 
-##Description of the options:
+## Description of the options:
 
 ### Required options:
 
