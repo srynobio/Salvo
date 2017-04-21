@@ -60,7 +60,7 @@ Idle required options:
 
 Additional options:
 
-	-user, -u 				:	Will add the user to run as. <STRING> (default $ENV{USER})
+    -user, -u		    :	Will add the user to run as. <STRING> (default $ENV{USER})
     -runtime, -r            :   Time to allow each job to run on node. <STRING> (default 5:00:00)
     -nodes_per_sbatch, -nps :   Number of nodes to run per sbatch launch <INT> (default 1)
     -jobs_per_sbatch, -jps  :   Number of jobs to run per sbatch launch. <INT> (default 1)
@@ -82,9 +82,9 @@ Additional options:
 
 ### Node information options:
 
-    -squeue_me, -sm			: Will output all current runing jobs across all clusters.
+    -squeue_me, -sm		: Will output all current runing jobs across all clusters.
     -sinfo_idle, -si		: Will output all currently idle nodes across all clusters.
-    -node_info, ni			: Will give a greater detailed output of all idle nodes across all clusters.
+    -node_info, ni		: Will give a greater detailed output of all idle nodes across all clusters.
 
 
 
