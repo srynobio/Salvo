@@ -10,6 +10,7 @@ use Fcntl qw(:flock SEEK_END);
 
 ## main node collection hash.
 our $access;
+our %pending_count;
 
 ## ----------------------------------------------------- ##
 ##                    Attributes                         ##
@@ -116,10 +117,12 @@ sub idle {
 
     $self->INFO("Checking for preempted jobs.");
     if ( $self->are_jobs_preempted ) {
+        sleep 60;
         goto CHECKPROCESS;
     }
 
     if ( $self->are_files_processing ) {
+        sleep 60;
         goto CHECKPROCESS;
     }
 
@@ -475,41 +478,43 @@ sub get_port_range {
 
 sub _check_processing_state {
     my $self = shift;
-    my $user = $self->user;
-
-    $self->INFO("Checking activity of running jobs.");
 
     open( my $FH, '<', 'launch.index' );
 
+    my $pending = 0;
     my $running = 0;
-    my $waiting = 0;
-    foreach my $launched (<$FH>) {
-        my @report = split /\s+/, $launched;
-        my $cmd = sprintf( "%s -u %s -j %s -h -o \"%%t\" -M all",
-            'squeue', $user, $report[-1] );
-        my @result = `$cmd 2> tmp.salvo.log`;
+    foreach my $i (<$FH>) {
+        chomp $i;
+        my @results = split /\s+/, $i;
+        my @cluster_info =
+          `squeue -h -j $results[-1] --format="%T" -M all 2> /dev/null`;
+        chomp @cluster_info;
 
-        foreach my $reply (@result) {
-            next if ( $reply =~ /slurm_load_jobs error:/ );
-            if ( $reply =~ /^R/ ) {
-                $running++;
-            }
-            if ( $reply =~ /^PD/ ) {
-                $waiting++;
+        foreach my $state (@cluster_info) {
+            chomp $state;
+            next if ( $state =~ /^CLUSTER/ );
+            $running++ if ( $state eq 'RUNNING' );
+            if ( $state eq 'PENDING' ) {
+                $pending_count{ $results[-1] }++;
             }
         }
     }
 
-    if ( $running == 0 and $waiting == 0 ) {
-        $self->INFO("Process files but no jobs are running or waiting.");
-        $self->INFO("Reseting processing jobs.");
-        return 'RESET';
+    ## short cut out.
+    if ($running) {
+        $self->INFO("Jobs currently running or waiting for resources.");
+        return 'ACTIVE';
     }
 
-    if ( $running > 1 or $waiting > 1 ) {
-        $self->INFO("Jobs currently running or waiting for resources.");
-        return "ACTIVE";
+    my $reset = 0;
+    while ( my ( $id, $count ) = each %pending_count ) {
+        if ( $count > 10 ) {
+            `scancel $id -M all`;
+            $reset++;
+        }
     }
+    return 'RESET' if ($reset);
+    return 'ACTIVE';
 }
 
 ## ----------------------------------------------------- ##

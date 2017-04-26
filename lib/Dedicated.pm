@@ -42,7 +42,7 @@ sub dedicated {
     ## launch sbatch scripts.
     $self->dedicated_launcher;
 
-    # give sbatch system time to work
+    # give sbatch system time to start and work.
     sleep(30);
 
     # check the status of current sbatch jobs
