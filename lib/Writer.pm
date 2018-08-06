@@ -13,14 +13,14 @@ use Moo::Role;
 ## ----------------------------------------------------- ##
 
 sub dedicated_writer {
-    my ( $self, $stack ) = @_;
+    my ( $self, $cmdStack ) = @_;
 
     my $jobname   = $self->jobname . '-' . $self->random_id;
     my $slurm_out = $jobname . '.out';
     my $slurm_err = $jobname . '.err';
     my $outfile   = $jobname . '.sbatch';
 
-    my $cmds = join( "\n", @{$stack} );
+    my $cmds = join( "\n", @{$cmdStack} );
 
     my $extra_steps = '';
     if ( $self->additional_steps ) {
@@ -40,7 +40,7 @@ sub dedicated_writer {
     my $nps       = $self->nodes_per_sbatch;
     my $account   = $self->account;
     my $partition = $self->partition;
-    my $work_dir  = $self->work_dir;
+    #######my $qos = $self->qos;
 
     my $sbatch = <<"EOM";
 #!/bin/bash
@@ -52,9 +52,6 @@ sub dedicated_writer {
 #SBATCH -o $slurm_out
 #SBATCH -e $slurm_err
 $exclude
-
-# Working directory
-cd $work_dir
 
 source /scratch/ucgd/lustre/ugpuser/shell/slurm_job_prerun
 
@@ -74,8 +71,9 @@ wait
 EOM
     open( my $OUT, '>', $outfile );
     say $OUT $sbatch;
-
     close $OUT;
+
+    return $outfile;
 }
 
 ## ----------------------------------------------------- ##
@@ -93,7 +91,7 @@ sub mpi_writer {
     my $account        = $node_detail->{ACCOUNT};
     my $requested_node = $node_detail->{NODE};
     my $partition      = $node_detail->{PARTITION};
-    my $work_dir = $self->work_dir;
+####    my $work_dir = $self->work_dir;
     my $runtime  = $self->runtime;
     my $user     = $self->user;
 
@@ -128,7 +126,7 @@ sub mpi_writer {
 $exclude
 
 # Working directory
-cd $work_dir
+###cd jjjjwork_dir
 
 source /scratch/ucgd/lustre/ugpuser/shell/slurm_job_prerun
 
@@ -164,7 +162,7 @@ sub standard_writer {
     my $account        = $node_detail->{ACCOUNT};
     my $requested_node = $node_detail->{NODE};
     my $partition      = $node_detail->{PARTITION};
-    my $work_dir       = $self->work_dir;
+###    my $work_dir       = $self->work_dir;
     my $runtime        = $self->runtime;
     my $user           = $self->user;
 
@@ -198,7 +196,7 @@ sub standard_writer {
 $exclude
 
 # Working directory
-cd $work_dir
+#####cd work_dir
 
 source /scratch/ucgd/lustre/ugpuser/shell/slurm_job_prerun
 module load ucgd_modules

@@ -5,6 +5,10 @@ use feature 'say';
 use Moo::Role;
 use IO::Dir;
 
+
+use Data::Dumper;
+
+
 ## ----------------------------------------------------- ##
 ##                    Attributes                         ##
 ## ----------------------------------------------------- ##
@@ -13,7 +17,7 @@ has sbatch_limit => (
     is      => 'rw',
     default => sub {
         my $self = shift;
-        return $self->{sbatch_limit} || 50;
+        return $self->{sbatch_limit} || 100;
     },
 );
 
@@ -23,7 +27,7 @@ has sbatch_limit => (
 
 sub dedicated {
     my $self = shift;
-    my $cmds = $self->get_cmds;
+    my $cmds = $self->getCmdsDB;
 
     # split base on jps, then create sbatch scripts.
     my $jps;
@@ -31,16 +35,20 @@ sub dedicated {
       ? ( $jps = $self->jobs_per_sbatch )
       : ( $jps = 1 );
 
-    my @stack;
-    push @stack, [ splice @{$cmds}, 0, $jps ] while @{$cmds};
+    my @cmdStack;
+    push @cmdStack, [ splice @{$cmds}, 0, $jps ] while @{$cmds};
 
-    foreach my $cmd (@stack) {
+    foreach my $cmd (@cmdStack) {
         chomp $cmd;
-        $self->dedicated_writer($cmd);
+
+
+        my $outfile = $self->dedicated_writer($cmd);
+        $self->updateStatusDB('ready', 'Command', @$cmd, $outfile);
+
     }
 
     ## launch sbatch scripts.
-    $self->dedicated_launcher;
+    ##$self->dedicated_launcher(\@sbatchFiles);
 
     # give sbatch system time to start and work.
     sleep(30);
@@ -56,18 +64,19 @@ sub dedicated {
 ## ----------------------------------------------------- ##
 
 sub dedicated_launcher {
-    my $self = shift;
+    my ($self, $sbatchFiles) = @_;
 
-    my $DIR     = IO::Dir->new(".");
-    my $running = 0;
-    foreach my $launch ( $DIR->read ) {
+    my $submitted = 0; 
+    my $running; ##################
+
+    foreach my $launch ( @{$sbatchFiles} ) {
         chomp $launch;
         next unless ( $launch =~ /sbatch$/ );
 
-        if ( $running >= $self->sbatch_limit ) {
+        if ( $submitted >= $self->sbatch_limit ) {
             my $status = $self->_jobs_status();
             if ( $status eq 'add' ) {
-                $running--;
+                $submitted--;
                 redo;
             }
             elsif ( $status eq 'wait' ) {

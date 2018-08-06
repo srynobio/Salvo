@@ -149,6 +149,8 @@ if ( $salvo_opts{job_flush} ) {
 }
 
 ## Clean up option.
+#
+# UPDATE WHAT IS CLEANED!!!!!!!!!!!!
 if ( $salvo_opts{clean} ) {
     my @salvo_files = glob q(tmp.salvo.log *tmp *processing *launched *out *complete *cmds *error *err);
     unlink @salvo_files if @salvo_files;
@@ -157,11 +159,13 @@ if ( $salvo_opts{clean} ) {
 }
 
 ## Check required.
-unless ( $salvo_opts{mode} and $salvo_opts{command_file} ) {
-    say $usage;
-    say "Required options not met.";
-    exit(1);
-}
+#
+#add cluster here.
+###unless ( $salvo_opts{mode} and $salvo_opts{command_file} ) {
+## say $usage;
+##  say "Required options not met.";
+##  exit(1);
+##}
 
 my $salvo = Salvo->new( \%salvo_opts );
 $salvo->fire;

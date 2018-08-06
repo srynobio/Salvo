@@ -3,13 +3,18 @@ use strict;
 use warnings;
 use feature 'say';
 use Moo;
-use File::Copy;
+#######use DBI;
+##use File::Copy;
+
+use Data::Dumper;
+
 
 with qw {
   Reporter
   Writer
   Idle
   Dedicated
+  SalvoDB
 };
 
 ## ----------------------------------------------------- ##
@@ -72,21 +77,22 @@ has exclude_nodes => (
     },
 );
 
-has exclude_cluster => (
-    is      => 'ro',
-    default => sub {
-        my $self = shift;
-        return $self->{exclude_cluster} || '';
-    },
-);
 
-has work_dir => (
-    is      => 'ro',
-    default => sub {
-        my $self = shift;
-        return $self->{work_dir} || $ENV{PWD};
-    },
-);
+#has exclude_cluster => (
+#    is      => 'ro',
+#    default => sub {
+#        my $self = shift;
+#        return $self->{exclude_cluster} || '';
+#    },
+#);
+
+#has work_dir => (
+#    is      => 'ro',
+#    default => sub {
+#        my $self = shift;
+#        return $self->{work_dir} || $ENV{PWD};
+#    },
+#);
 
 has runtime => (
     is      => 'ro',
@@ -157,48 +163,56 @@ has concurrent => (
     },
 );
 
+#has dbConnect => (
+#    is      => 'rw',
+#    default => sub {
+#        my $self   = shift;
+#        my $dbName = "$self->jobname.db";
+#        my $dbh =
+#          DBI->connect( "dbi:SQLite:dbname=$dbName", "", "",
+#            { RaiseError => 1 } )
+#          or die $DBI::errstr;
+#    }
+#);
+
+
+
+
 ## ----------------------------------------------------- ##
 ##                     Methods                           ##
 ## ----------------------------------------------------- ##
+
+
+## KEEP / DONE!
 
 sub BUILD {
     my ( $self, $args ) = @_;
 
     $self->{SBATCH} = {
-
-        #lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/sbatch',
         ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/sbatch',
         kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/sbatch',
         ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/sbatch',
     };
 
     $self->{SQUEUE} = {
-        ash => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/squeue',
-
-        #lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/squeue',
+        ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/squeue',
         kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/squeue',
         ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/squeue',
     };
 
     $self->{SINFO} = {
-        ash => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/sinfo',
-
-        #lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/sinfo',
+        ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/sinfo',
         kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/sinfo',
         ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/sinfo',
     };
 
     $self->{SCANCEL} = {
-        ash => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/scancel',
-
-        #lonepeak  => '/uufs/lonepeak.peaks/sys/pkg/slurm/std/bin/scancel',
+        ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/scancel',
         kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/scancel',
         ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/scancel',
     };
     $self->{UUFSCELL} = {
-        ash => 'ash.peaks',
-
-        #lonepeak  => 'lonepeak.peaks',
+        ash       => 'ash.peaks',
         kingspeak => 'kingspeak.peaks',
         ember     => 'ember.arches',
     };
@@ -224,7 +238,7 @@ sub BUILD {
         exit(1);
     }
 
-    ## check that command file exists.
+    ## file check that command file exists.
     if ( !-e $args->{command_file} ) {
         $self->ERROR("Command file given could not be found.");
     }
@@ -236,6 +250,10 @@ sub BUILD {
                 "dedicated mode requires account, partition and cluster info.");
         }
     }
+
+    ## build the sqlite database
+    $self->connectDB;
+    return;
 }
 
 ## ----------------------------------------------------- ##
@@ -248,8 +266,8 @@ sub fire {
         $self->dedicated;
     }
     elsif ( $mode eq 'idle' ) {
-        $self->get_cmds_from_file;
-        $self->idle;
+#        $self->get_cmds_from_file;
+        #       $self->idle;
     }
     else {
         $self->ERROR("Misfire!! $mode not an mode option.");
@@ -263,6 +281,7 @@ sub fire {
 
 ## used in Dedicated mode.
 
+=cut
 sub get_cmds {
     my $self = shift;
 
@@ -281,9 +300,10 @@ sub get_cmds {
 
     return \@cmd_stack;
 }
+=cut
 
 ## ----------------------------------------------------- ##
-
+=cut
 sub get_cmds_from_file {
     my $self = shift;
 
@@ -301,8 +321,11 @@ sub get_cmds_from_file {
     }
     close $IN;
 }
-
+=cut
 ## ----------------------------------------------------- ##
+
+
+## KEEP / DONE!
 
 sub additional_steps {
     my $self = shift;
