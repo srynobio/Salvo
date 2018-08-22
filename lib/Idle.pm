@@ -9,8 +9,8 @@ use File::Copy;
 use Fcntl qw(:flock SEEK_END);
 
 ## main node collection hash.
-our $access;
-our %pending_count;
+##our $access;
+###our %pending_count;
 
 ## ----------------------------------------------------- ##
 ##                    Attributes                         ##
@@ -21,14 +21,11 @@ has socket => (
     default => sub {
         my $self    = shift;
         my $host_id = $self->get_host_id;
-##        my ( $lower, $upper ) = $self->get_port_range;
 
         my $socket;
-        ##      for ( $lower .. $upper ) {
         $socket = IO::Socket::INET->new(
             LocalHost => $host_id,
             LocalPort => $self->port,
-            ##LocalPort => $_,
             Proto     => 'tcp',
             Type      => SOCK_STREAM,
             Listen    => SOMAXCONN,
@@ -38,9 +35,8 @@ has socket => (
             $self->{socket} = $socket;
             $self->localhost($host_id);
             $self->localport($_);
-            last;
+            ###########last;
         }
-        ## }
         return $socket;
     },
 );
@@ -59,87 +55,6 @@ has active => ( is => 'rw' );
 ## ----------------------------------------------------- ##
 ##                     Methods                           ##
 ## ----------------------------------------------------- ##
-=cut
-sub idle {
-    my $self = shift;
-
-    ## beacon child launch section.
-    my $subprocess = 0;
-    my $pm         = $self->subprocess;
-
-  MORENODES:
-    $self->WARN("Fetching more nodes...");
-    $access = $self->ican_find;
-
-    while ( $subprocess < 1 ) {
-        $self->active(1);
-        $subprocess++;
-        $pm->start and next;
-        $self->start_beacon;
-        $pm->finish;
-
-        my $child = $pm->running_procs;
-        kill 'KILL', $child;
-        exit(0);
-    }
-
-    ## check if node are available and report.
-    if ( !keys %{$access} ) {
-        $self->INFO("CHPC running at 100%, or no nodes accessible.");
-        say "Will check for available nodes in 5 mins...";
-        sleep 300;
-        goto MORENODES;
-    }
-
-    ## create beacon scripts.
-    foreach my $avail ( keys %{$access} ) {
-        if ( $self->nodes_per_sbatch > 1 ) {
-            $self->mpi_writer( $access->{$avail} );
-        }
-        else {
-            $self->standard_writer( $access->{$avail} );
-        }
-        $self->idle_launcher( $access->{$avail} );
-    }
-
-    ## start processing.
-    $self->INFO("Processing....");
-    sleep 300;
-    $self->flush_NotAvail;
-
-  CHECKPROCESS:
-    $self->INFO("Checking for unprocessed commands.");
-    $self->INFO("Flushing any unavailable jobs.");
-    ## check and launch more beacons if work to be done.
-    if ( $self->are_cmds_remaining ) {
-        $self->flush_NotAvail;
-        goto MORENODES;
-    }
-
-    $self->INFO("Checking for preempted jobs.");
-    if ( $self->are_jobs_preempted ) {
-        sleep 60;
-        goto CHECKPROCESS;
-    }
-
-    if ( $self->are_files_processing ) {
-        sleep 60;
-        goto CHECKPROCESS;
-    }
-
-    ## Clean up all processes and children.
-    $self->INFO("All work processed, shutting down beacons.");
-    $self->active(0);
-    $self->INFO("Flushing any remaining beacons.");
-    $self->node_flush;
-    $self->INFO("Shutting down open socket.");
-    my $kill_socket = $self->{socket};
-    $kill_socket->shutdown(2);
-    $kill_socket->close;
-    $pm->wait_all_children;
-}
-=cut
-## ----------------------------------------------------- ##
 
 sub idle {
     my $self = shift;
@@ -156,20 +71,20 @@ sub idle {
         $pm->finish;
 
         my $masterPID = $pm->running_procs;
-        kill 'KILL', $child;
+        kill 'KILL', $masterPID;
         exit(0);
     }
 
     ## Write required sbatch and launch all beacons.
     if ( $self->nodes_per_sbatch > 1 ) {
-        $self->mpi_writer( $access->{$avail} );
+        ##$self->mpi_writer( $access->{$avail} );
     }
     else {
-        $self->standard_writer( $access->{$avail} );
+        ###$self->standard_writer( $access->{$avail} );
     }
-    $self->idle_launcher( $access->{$avail} );
+    ##$self->idle_launcher( $access->{$avail} );
 
-
+=cut
     ## check and launch more beacons if work to be done.
     if ( $self->are_cmds_remaining ) {
         $self->flush_NotAvail;
@@ -186,6 +101,7 @@ sub idle {
         sleep 60;
         goto CHECKPROCESS;
     }
+=cut
 
     ## Clean up all processes and children.
     $self->INFO("All work processed, shutting down beacons.");
@@ -198,15 +114,6 @@ sub idle {
     $kill_socket->close;
     $pm->wait_all_children;
 }
-
-
-
-
-
-
-
-
-
 
 ## ----------------------------------------------------- ##
 
@@ -246,7 +153,7 @@ sub start_beacon {
         my $memCpu = $self->min_cpu_required;
 
         my $cpuMet = 1;
-        my $cpuMet = 1;
+        my $memMet = 1;
         ( $memCpu > 1 && $nodeCpu >= $memCpu ) ? $cpuMet = 1 : $cpuMet = 0;
         ( $memMem > 1 && $nodeMem >= $memMem ) ? $memMet = 1 : $memMet = 0;
 
@@ -254,7 +161,7 @@ sub start_beacon {
         my $returnMess;
         my $cmds = $self->getCmdsDB;
         if ( scalar @$cmds == 0 ) {
-            $retrunMess = "die";
+	    $returnMess = "die";
         }
         else {
             my $jps = splice @$cmds, 0, $self->jps;
@@ -275,6 +182,7 @@ sub start_beacon {
 
 ## ----------------------------------------------------- ##
 =cut
+
 sub command_writer {
     my ( $self, $cpu ) = @_;
 
@@ -329,7 +237,7 @@ sub command_writer {
     close $FH;
     return $file, $processing_number;
 }
-=cut
+
 ## ----------------------------------------------------- ##
 
 sub are_cmds_remaining {
@@ -540,6 +448,8 @@ sub idle_launcher {
     }
 }
 
+=cut
+
 ## ----------------------------------------------------- ##
 
 sub get_host_id {
@@ -550,6 +460,8 @@ sub get_host_id {
 }
 
 ## ----------------------------------------------------- ##
+
+=cut
 
 sub get_port_range {
     my $self = shift;
@@ -604,5 +516,6 @@ sub _check_processing_state {
 }
 
 ## ----------------------------------------------------- ##
+=cut
 
 1;
