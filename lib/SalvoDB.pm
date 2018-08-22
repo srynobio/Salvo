@@ -73,10 +73,11 @@ sub buildDB {
     my $self = shift;
     my $dbh = $self->dbh;
 
-    $dbh->do("CREATE TABLE Process(
-        ID INTEGER PRIMARY KEY AUTOINCREMENT,
-        Command varchar(100),
-        Status varchar(10),
+    $dbh->do(
+	"CREATE TABLE Process(
+        	ID INTEGER PRIMARY KEY AUTOINCREMENT,
+        	Command varchar(100),
+        	Status varchar(10)
         );"
     );
     return;
