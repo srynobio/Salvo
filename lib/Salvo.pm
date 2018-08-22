@@ -41,7 +41,7 @@ has jobs_per_sbatch => (
     is      => 'ro',
     default => sub {
         my $self = shift;
-        return $self->{jobs_per_sbatch} || 0;
+        return $self->{jobs_per_sbatch} || 1;
     },
 );
 
@@ -69,13 +69,29 @@ has partition => (
     },
 );
 
-has exclude_nodes => (
-    is      => 'ro',
+has port => (
+    is      => 'rw',
     default => sub {
         my $self = shift;
-        return $self->{exclude_nodes};
+        return $self->{port} || '9000';
     },
 );
+
+has beaconCount => (
+    is => 'rw',
+    default => sub {
+        my $self = shift;
+        return $self->{beaconCount} || 40;
+    },
+);
+
+#has exclude_nodes => (
+#    is      => 'ro',
+#    default => sub {
+#        my $self = shift;
+#        return $self->{exclude_nodes};
+#    },
+#);
 
 
 #has exclude_cluster => (
@@ -266,6 +282,7 @@ sub fire {
         $self->dedicated;
     }
     elsif ( $mode eq 'idle' ) {
+        $self->idle;
 #        $self->get_cmds_from_file;
         #       $self->idle;
     }
@@ -370,7 +387,7 @@ sub node_flush {
 }
 
 ## ----------------------------------------------------- ##
-
+=cut
 sub ican_find {
     my $self = shift;
 
@@ -529,7 +546,7 @@ sub ican_find {
     );
     return \%node_list;
 }
-
+=cut
 ## ----------------------------------------------------- ##
 
 1;

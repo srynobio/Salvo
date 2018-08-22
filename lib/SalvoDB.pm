@@ -45,8 +45,8 @@ has dbh => (
 
 sub connectDB {
     my $self   = shift;
-    my $jbname = $self->jobname;
-    my $dbName = "$jbname.db";
+    my $jobname = $self->jobname;
+    my $dbName = "$jobname.db";
 
     my $needBuild = 1;
     if ( -e $dbName ) {
@@ -74,15 +74,14 @@ sub buildDB {
     my $dbh = $self->dbh;
 
     $dbh->do("CREATE TABLE Process(
+        ID INTEGER PRIMARY KEY AUTOINCREMENT,
         Command varchar(100),
         Status varchar(10),
-        Host varchar(10),
-        Launch_ID varchar(10),
-        Sbatch_File varchar(15)
         );"
     );
     return;
 }
+
 
 ## ----------------------------------------------------- ##
 
@@ -100,7 +99,8 @@ sub populateDB {
         if ( $self->concurrent ) {
             $line = "$line &"
         }
-        $sth->execute($line,'set'); 
+        ## Set default for Status column.
+        $sth->execute($line,'ready');
     }
 }
 
@@ -110,7 +110,7 @@ sub getCmdsDB {
     my $self = shift;
 
     my $dbh = $self->dbh;
-    my $sth = $dbh->prepare("SELECT Command FROM Process WHERE Status = 'set'");
+    my $sth = $dbh->prepare("SELECT ID, Command FROM Process WHERE Status = 'ready'");
     $sth->execute;
 
     my @cmds;

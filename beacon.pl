@@ -4,12 +4,13 @@ use strict;
 use warnings;
 use feature 'say';
 use IO::Socket::INET;
-use IPC::Open3;
+use IPC::Cmd qw[run];
+############use IPC::Open3;
 use Sys::Hostname;
 use Parallel::ForkManager;
-use Cwd 'abs_path';
-use File::Copy;
-use Fcntl qw(:flock SEEK_END);
+###use Cwd 'abs_path';
+###use File::Copy;
+###use Fcntl qw(:flock SEEK_END);
 
 # flush after every write
 $| = 1;
@@ -24,36 +25,60 @@ my $socket = new IO::Socket::INET(
     Proto    => 'tcp',
     Type     => SOCK_STREAM,
 ) or die "ERROR in Socket Creation : $!\n";
-say "beacon ready for work.";
 
-## collect node data.
-my $node = hostname;
-$socket->send( $node, 1024 );
+## collect node info.
+my $nodeInfo = `sinfo -h -n $ENV{SLURMD_NODENAME} -o "%c:%m:%n"`;
+chomp $nodeInfo;
+$socket->send( $nodeInfo, 1024 );
 
 ## get sent command file.
 my $message;
-$socket->recv( $message, 1024 );
-my ( $cmd_file, $cpu ) = split /:/, $message;
-
-if ( !$cmd_file ) {
-    say "cmd file not give, possibly out of commands to run.";
-    $socket->close;
-    exit(1);
-}
+$socket->recv( $message, 9000 );
+my @cmds = split/::/, $message;
 
 ## kill unneeded clients
-if ( $cmd_file eq 'die' ) {
-    say "...No work left, shutting down this beacon.";
+if ( length $message == 0 or $message eq 'die' ) {
+    say "No commands for node: $node. Releasing node.";
     $socket->close;
     exit(0);
 }
 
-say "Processing file:$cmd_file";
-process_cmds( $cmd_file, $cpu );
+## run the set[s] of command and return to updated db.
+my $cmdStatus = commandRunner(\@cmds);
+$socket->send($cmdStatus, 1024);
 $socket->close;
 
 ## ---------------------------------------- ##
 
+sub commandRunner {
+    my $cmds = shift;
+
+    my $returnMessage;
+    foreach my $run (@$cmds) {
+
+        my $pm = Parallel::ForkManager->new($cpu);
+        $pm->start and next;
+
+        my ( $success, $error_message, $full_buf, $stdout_buf, $stderr_buf ) =
+          run( command => $run, verbose => 0 );
+
+        if ($success) {
+            $returnMessage = "success";
+            return "success";
+        }
+        if ($error_message) {
+            say "@$stderr_buf";
+            $returnMessage = "error";
+        }
+        $pm->finish;
+    }
+    $pm->wait_all_children;
+    return $returnMessage;
+}
+
+## ---------------------------------------- ##
+
+=cut
 sub process_cmds {
     my ( $command_file, $cpu ) = @_;
     $command_file =~ s/$/.processing/;
@@ -123,5 +148,6 @@ sub need_rerun {
     close $FH;
 }
 
+=cut
 ## ---------------------------------------- ##
 

@@ -21,25 +21,26 @@ has socket => (
     default => sub {
         my $self    = shift;
         my $host_id = $self->get_host_id;
-        my ( $lower, $upper ) = $self->get_port_range;
+##        my ( $lower, $upper ) = $self->get_port_range;
 
         my $socket;
-        for ( $lower .. $upper ) {
-            $socket = IO::Socket::INET->new(
-                LocalHost => $host_id,
-                LocalPort => $_,
-                Proto     => 'tcp',
-                Type      => SOCK_STREAM,
-                Listen    => SOMAXCONN,
-                Reuse     => 1
-            );
-            if ($socket) {
-                $self->{socket} = $socket;
-                $self->localhost($host_id);
-                $self->localport($_);
-                last;
-            }
+        ##      for ( $lower .. $upper ) {
+        $socket = IO::Socket::INET->new(
+            LocalHost => $host_id,
+            LocalPort => $self->port,
+            ##LocalPort => $_,
+            Proto     => 'tcp',
+            Type      => SOCK_STREAM,
+            Listen    => SOMAXCONN,
+            Reuse     => 1
+        );
+        if ($socket) {
+            $self->{socket} = $socket;
+            $self->localhost($host_id);
+            $self->localport($_);
+            last;
         }
+        ## }
         return $socket;
     },
 );
@@ -58,7 +59,7 @@ has active => ( is => 'rw' );
 ## ----------------------------------------------------- ##
 ##                     Methods                           ##
 ## ----------------------------------------------------- ##
-
+=cut
 sub idle {
     my $self = shift;
 
@@ -137,6 +138,75 @@ sub idle {
     $kill_socket->close;
     $pm->wait_all_children;
 }
+=cut
+## ----------------------------------------------------- ##
+
+sub idle {
+    my $self = shift;
+
+    ## launch master.
+    my $subprocess = 0;
+    my $pm         = $self->subprocess;
+
+    while ( $subprocess < 1 ) {
+        $self->active(1);
+        $subprocess++;
+        $pm->start and next;
+        $self->start_beacon;
+        $pm->finish;
+
+        my $masterPID = $pm->running_procs;
+        kill 'KILL', $child;
+        exit(0);
+    }
+
+    ## Write required sbatch and launch all beacons.
+    if ( $self->nodes_per_sbatch > 1 ) {
+        $self->mpi_writer( $access->{$avail} );
+    }
+    else {
+        $self->standard_writer( $access->{$avail} );
+    }
+    $self->idle_launcher( $access->{$avail} );
+
+
+    ## check and launch more beacons if work to be done.
+    if ( $self->are_cmds_remaining ) {
+        $self->flush_NotAvail;
+        goto MORENODES;
+    }
+
+    $self->INFO("Checking for preempted jobs.");
+    if ( $self->are_jobs_preempted ) {
+        sleep 60;
+        goto CHECKPROCESS;
+    }
+
+    if ( $self->are_files_processing ) {
+        sleep 60;
+        goto CHECKPROCESS;
+    }
+
+    ## Clean up all processes and children.
+    $self->INFO("All work processed, shutting down beacons.");
+    $self->active(0);
+    $self->INFO("Flushing any remaining beacons.");
+    $self->node_flush;
+    $self->INFO("Shutting down open socket.");
+    my $kill_socket = $self->{socket};
+    $kill_socket->shutdown(2);
+    $kill_socket->close;
+    $pm->wait_all_children;
+}
+
+
+
+
+
+
+
+
+
 
 ## ----------------------------------------------------- ##
 
@@ -161,34 +231,50 @@ sub start_beacon {
         my $client_port    = $client->peerport();
         print "connection from $client_address:$client_port\n";
 
-        # Get data on who client is.
+        # Get info on client.
         my $node = "";
         $client->recv( $node, 1024 );
-        $self->INFO("Received beacon from node: $node");
+        my @nodeData = split /:/, $node;
+        $self->INFO("Received beacon from node: $nodeData[-1]");
 
-        ## get cpu info from access hash.
-        my $cpu = $access->{$node}->{CPU};
-        next if ( !$cpu );
+        ## get cpu and memory (in GB) info from node info.
+        my $nodeCpu = $nodeData[0];
+        my $nodeMem = $nodeData[1] / 1000;
 
-        ## write command file based on request or number of cpus.
-        my ( $step, $processing_number ) = $self->command_writer($cpu);
+        ## check that recived node has requested cpu and memory.
+        my $memMem = $self->min_mem_required;
+        my $memCpu = $self->min_cpu_required;
+
+        my $cpuMet = 1;
+        my $cpuMet = 1;
+        ( $memCpu > 1 && $nodeCpu >= $memCpu ) ? $cpuMet = 1 : $cpuMet = 0;
+        ( $memMem > 1 && $nodeMem >= $memMem ) ? $memMet = 1 : $memMet = 0;
+
+        ## Get commands from db.
+        my $returnMess;
+        my $cmds = $self->getCmdsDB;
+        if ( scalar @$cmds == 0 ) {
+            $retrunMess = "die";
+        }
+        else {
+            my $jps = splice @$cmds, 0, $self->jps;
+            $returnMess = join( "::", $jps );
+        }
 
         ## exit if out of commands
-        if ( $step eq 'die' ) {
-            $client->send($step);
+        if ( $returnMess eq 'die' ) {
+            $client->send($returnMess);
             next;
         }
 
-        say "sending file $step to $node.";
-        my $message = "$step:$processing_number";
-        rename $step, "$step.processing";
-        $client->send($message);
+        say "sending command to node: $node.";
+        $client->send($returnMess);
     }
     $socket->close;
 }
 
 ## ----------------------------------------------------- ##
-
+=cut
 sub command_writer {
     my ( $self, $cpu ) = @_;
 
@@ -243,7 +329,7 @@ sub command_writer {
     close $FH;
     return $file, $processing_number;
 }
-
+=cut
 ## ----------------------------------------------------- ##
 
 sub are_cmds_remaining {
