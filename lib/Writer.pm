@@ -151,72 +151,86 @@ EOM
 
 ## ----------------------------------------------------- ##
 
+
+
+
+
 sub standard_writer {
-    my ( $self, $node_detail ) = @_;
+    my $self = shift;
 
-    my $jobname   = $self->jobname . '-' . $self->random_id;
-    my $slurm_out = $jobname . '.out';
-    my $outfile   = $jobname . '.sbatch';
-
-    # collect from info hash & object
-    my $account        = $node_detail->{ACCOUNT};
-    my $requested_node = $node_detail->{NODE};
-    my $partition      = $node_detail->{PARTITION};
-###    my $work_dir       = $self->work_dir;
-    my $runtime        = $self->runtime;
-    my $user           = $self->user;
-
-    my $exclude = '';
-    if ( $self->exclude_nodes ) {
-        my $nodes = $self->exclude_nodes;
-        my ( $node, $list ) = split /:/, $nodes;
-        if ( $partition =~ /$node/ ) {
-            $exclude = "#SBATCH -x $list";
-        }
-    }
-
-    my $extra_steps = '';
-    if ( $self->additional_steps ) {
-        $extra_steps = join( "\n", @{ $self->additional_steps } );
-    }
-
-    ## get localhost and localport to pass to beacon
-    my $localhost   = $self->localhost;
-    my $localport   = $self->localport;
-    my $beacon_opts = "$localhost $localport";
-
-    my $sbatch = <<"EOM";
-#!/bin/bash
-#SBATCH -t $runtime
-#SBATCH -A $account
-#SBATCH -p $partition
-#SBATCH -J $jobname
-#SBATCH -o $slurm_out
-#SBATCH -w $requested_node
-$exclude
-
-# Working directory
-#####cd work_dir
-
-source /scratch/ucgd/lustre/ugpuser/shell/slurm_job_prerun
-module load ucgd_modules
-$extra_steps
-
-# clean up before start
-/scratch/ucgd/lustre/ugpuser/shell/slurm_job_prerun
-
-beacon.pl $beacon_opts
-
-wait
-
-# clean up after finish.
-/scratch/ucgd/lustre/ugpuser/shell/slurm_job_postrun
-
-EOM
-    open( my $OUT, '>', $outfile );
-    say $OUT $sbatch;
-    close $OUT;
+    my $jfkdjfkd;
 }
+
+    
+# sub standard_writer {
+#    my $self = shift;
+#    ##########my ( $self, $node_detail ) = @_;
+#
+#    my $jobname   = $self->jobname . '-' . $self->random_id;
+#    my $slurm_out = $jobname . '.out';
+#    my $outfile   = $jobname . '.sbatch';
+#
+#=cut
+#    # collect from info hash & object
+#    my $account        = $node_detail->{ACCOUNT};
+#    my $requested_node = $node_detail->{NODE};
+#    my $partition      = $node_detail->{PARTITION};
+####    my $work_dir       = $self->work_dir;
+#    my $runtime        = $self->runtime;
+#    my $user           = $self->user;
+#
+#    my $exclude = '';
+#    if ( $self->exclude_nodes ) {
+#        my $nodes = $self->exclude_nodes;
+#        my ( $node, $list ) = split /:/, $nodes;
+#        if ( $partition =~ /$node/ ) {
+#            $exclude = "#SBATCH -x $list";
+#        }
+#    }
+#
+#    my $extra_steps = '';
+#    if ( $self->additional_steps ) {
+#        $extra_steps = join( "\n", @{ $self->additional_steps } );
+#    }
+#=cut
+#
+#    ## get localhost and localport to pass to beacon
+#    my $localhost   = $self->localhost;
+#    my $localport   = $self->localport;
+#    my $beacon_opts = "$localhost $localport";
+#
+#    my $sbatch = <<"EOM";
+##!/bin/bash
+##SBATCH -t $runtime
+##SBATCH -A $account
+##SBATCH -p $partition
+##SBATCH -J $jobname
+##SBATCH -o $slurm_out
+##SBATCH -w $requested_node
+#$exclude
+#
+## Working directory
+######cd work_dir
+#
+#source /scratch/ucgd/lustre/ugpuser/shell/slurm_job_prerun
+#module load ucgd_modules
+#$extra_steps
+#
+## clean up before start
+#/scratch/ucgd/lustre/ugpuser/shell/slurm_job_prerun
+#
+#beacon.pl $beacon_opts
+#
+#wait
+#
+## clean up after finish.
+#/scratch/ucgd/lustre/ugpuser/shell/slurm_job_postrun
+#
+#EOM
+#    open( my $OUT, '>', $outfile );
+#    say $OUT $sbatch;
+#    close $OUT;
+#}
 
 ## ----------------------------------------------------- ##
 

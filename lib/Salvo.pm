@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use feature 'say';
 use Moo;
+use Config::Std;
 #######use DBI;
 ##use File::Copy;
 
@@ -84,6 +85,7 @@ has beaconCount => (
         return $self->{beaconCount} || 40;
     },
 );
+
 
 #has exclude_nodes => (
 #    is      => 'ro',
@@ -204,34 +206,37 @@ has concurrent => (
 sub BUILD {
     my ( $self, $args ) = @_;
 
-    $self->{SBATCH} = {
-        ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/sbatch',
-        kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/sbatch',
-        ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/sbatch',
-    };
 
-    $self->{SQUEUE} = {
-        ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/squeue',
-        kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/squeue',
-        ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/squeue',
-    };
 
-    $self->{SINFO} = {
-        ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/sinfo',
-        kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/sinfo',
-        ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/sinfo',
-    };
 
-    $self->{SCANCEL} = {
-        ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/scancel',
-        kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/scancel',
-        ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/scancel',
-    };
-    $self->{UUFSCELL} = {
-        ash       => 'ash.peaks',
-        kingspeak => 'kingspeak.peaks',
-        ember     => 'ember.arches',
-    };
+#    $self->{SBATCH} = {
+#        ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/sbatch',
+#        kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/sbatch',
+#        ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/sbatch',
+#    };
+#
+#    $self->{SQUEUE} = {
+#        ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/squeue',
+#        kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/squeue',
+#        ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/squeue',
+#    };
+#
+#    $self->{SINFO} = {
+#        ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/sinfo',
+#        kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/sinfo',
+#        ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/sinfo',
+#    };
+#
+#    $self->{SCANCEL} = {
+#        ash       => '/uufs/ash.peaks/sys/pkg/slurm/std/bin/scancel',
+#        kingspeak => '/uufs/kingspeak.peaks/sys/pkg/slurm/std/bin/scancel',
+#        ember     => '/uufs/ember.arches/sys/pkg/slurm/std/bin/scancel',
+#    };
+#    $self->{UUFSCELL} = {
+#        ash       => 'ash.peaks',
+#        kingspeak => 'kingspeak.peaks',
+#        ember     => 'ember.arches',
+#    };
 
     ## populate the object.
     foreach my $options ( keys %{$args} ) {
@@ -249,10 +254,25 @@ sub BUILD {
     }
 
     ## check requirements
-    unless ( $args->{command_file} && $args->{mode} ) {
+    unless ( $args->{command_file} && $args->{mode} && $args->{config}) {
         say "[ERROR] required options not given,";
         exit(1);
     }
+
+    ## parse config file and set values.
+    read_config $args->{config} => my %config;
+
+    foreach my $env (keys %config) {
+        say $env;
+
+    }
+
+
+
+
+
+
+
 
     ## file check that command file exists.
     if ( !-e $args->{command_file} ) {
@@ -274,6 +294,13 @@ sub BUILD {
 
 ## ----------------------------------------------------- ##
 
+
+
+
+
+
+## ----------------------------------------------------- ##
+
 sub fire {
     my $self = shift;
     my $mode = $self->mode;
@@ -289,7 +316,7 @@ sub fire {
     else {
         $self->ERROR("Misfire!! $mode not an mode option.");
     }
-    unlink 'launch.index' if -e 'launch.index';
+    #unlink 'launch.index' if -e 'launch.index';
     say "Salvo Done!";
     exit(0);
 }
@@ -547,7 +574,9 @@ sub ican_find {
     return \%node_list;
 }
 =cut
+
 ## ----------------------------------------------------- ##
+
 
 1;
 

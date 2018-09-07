@@ -117,6 +117,7 @@ GetOptions(
     "min_mem_required|mm=i",
     "min_cpu_required|mc=i",
     "job_flush",
+    "config=s",
     "help|h",
 );
 

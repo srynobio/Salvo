@@ -21,25 +21,53 @@ has socket => (
     default => sub {
         my $self    = shift;
         my $host_id = $self->get_host_id;
+        my ( $lower, $upper ) = $self->get_port_range;
 
         my $socket;
-        $socket = IO::Socket::INET->new(
-            LocalHost => $host_id,
-            LocalPort => $self->port,
-            Proto     => 'tcp',
-            Type      => SOCK_STREAM,
-            Listen    => SOMAXCONN,
-            Reuse     => 1
-        );
-        if ($socket) {
-            $self->{socket} = $socket;
-            $self->localhost($host_id);
-            $self->localport($_);
-            ###########last;
+        for ( $lower .. $upper ) {
+            $socket = IO::Socket::INET->new(
+                LocalHost => $host_id,
+                LocalPort => $_,
+                Proto     => 'tcp',
+                Type      => SOCK_STREAM,
+                Listen    => SOMAXCONN,
+                Reuse     => 1
+            );
+            if ($socket) {
+                $self->{socket} = $socket;
+                $self->localhost($host_id);
+                $self->localport($_);
+                last;
+            }
         }
         return $socket;
     },
 );
+
+
+#has socket => (
+#    is      => 'ro',
+#    default => sub {
+#        my $self    = shift;
+#        my $host_id = $self->get_host_id;
+#
+#        my $socket;
+#        $socket = IO::Socket::INET->new(
+#            LocalHost => $host_id,
+#            LocalPort => $self->port,
+#            Proto     => 'tcp',
+#            Type      => SOCK_STREAM,
+#            Listen    => SOMAXCONN,
+#            Reuse     => 1
+#        );
+#        if ($socket) {
+#            $self->{socket} = $socket;
+#            $self->localhost($host_id);
+#            $self->localport($_);
+#        }
+#        return $socket;
+#    },
+#);
 
 has subprocess => (
     is      => 'ro',
@@ -77,12 +105,18 @@ sub idle {
 
     ## Write required sbatch and launch all beacons.
     if ( $self->nodes_per_sbatch > 1 ) {
+        my $tstyyy;
         ##$self->mpi_writer( $access->{$avail} );
     }
     else {
-        ###$self->standard_writer( $access->{$avail} );
+        #####my $fjkdfjlksdjfkdk;
+        $self->standard_writer();
+        ####$self->standard_writer( $access->{$avail} );
     }
     ##$self->idle_launcher( $access->{$avail} );
+
+
+
 
 =cut
     ## check and launch more beacons if work to be done.
@@ -158,24 +192,24 @@ sub start_beacon {
         ( $memMem > 1 && $nodeMem >= $memMem ) ? $memMet = 1 : $memMet = 0;
 
         ## Get commands from db.
-        my $returnMess;
+        my $returnMesg;
         my $cmds = $self->getCmdsDB;
         if ( scalar @$cmds == 0 ) {
-	    $returnMess = "die";
+	        $returnMesg = "die";
         }
         else {
             my $jps = splice @$cmds, 0, $self->jps;
-            $returnMess = join( "::", $jps );
+            $returnMesg = join( "::", $jps );
         }
 
         ## exit if out of commands
-        if ( $returnMess eq 'die' ) {
-            $client->send($returnMess);
+        if ( $returnMesg eq 'die' ) {
+            $client->send($returnMesg);
             next;
         }
 
         say "sending command to node: $node.";
-        $client->send($returnMess);
+        $client->send($returnMesg);
     }
     $socket->close;
 }
@@ -461,7 +495,6 @@ sub get_host_id {
 
 ## ----------------------------------------------------- ##
 
-=cut
 
 sub get_port_range {
     my $self = shift;
@@ -471,6 +504,8 @@ sub get_port_range {
     my $upper       = $port_ranges[3];
     return $lower, $upper;
 }
+
+=cut
 
 ## ----------------------------------------------------- ##
 
